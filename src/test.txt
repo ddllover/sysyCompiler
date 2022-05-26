@@ -5,4 +5,4 @@
     log 记录
     reset 回溯版本
     relog 记录包括过去的版本
-    push 提交云
+    push 提交云 
