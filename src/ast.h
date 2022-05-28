@@ -40,7 +40,7 @@ class FuncDefAST : public BaseAST {
   }
 };
 
-class FunctypeAST :public BaseAST{
+class FuncTypeAST :public BaseAST{
     public:
     string str;
 

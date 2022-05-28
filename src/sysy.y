@@ -84,8 +84,9 @@ FuncDef
 // 同上, 不再解释
 FuncType
   : INT {
-    //auto ast =new string("int");
-    //$$ = $1;
+    auto ast =new FuncTypeAST();
+    ast->str="int";
+    $$ = ast;
   }
   ;
 
