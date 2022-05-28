@@ -1,8 +1,0 @@
-你先搞清的版本库
-常用的命令 
-    add 暂存
-    commit 提交本地仓库
-    log 记录
-    reset 回溯版本
-    relog 记录包括过去的版本
-    push 提交云 
