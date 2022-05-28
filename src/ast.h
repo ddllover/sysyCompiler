@@ -1,6 +1,9 @@
 #pragma once
 
 #include <iostream>
+#include<cassert>
+#include "koopa.h"
+
 using namespace std;
 
 // 所有 AST 的基类
@@ -18,9 +21,9 @@ class CompUnitAST : public BaseAST {
   unique_ptr<BaseAST> func_def;
 
   void Dump() const override {
-    cout << "CompUnitAST { ";
+    //cout << "CompUnitAST { ";
     func_def->Dump();
-    cout << " }";
+    //cout << " }";
   }
 };
 
@@ -32,11 +35,12 @@ class FuncDefAST : public BaseAST {
   unique_ptr<BaseAST> block;
 
   void Dump() const override {
-    cout << "FuncDefAST { ";
+    cout << "fun ";
+    cout << "@" << ident << "(): ";
     func_type->Dump();
-    cout << ", " << ident << ", ";
+    cout<<"{"<<endl;
     block->Dump();
-    cout << " }";
+    cout << "}"<<endl;
   }
 };
 
@@ -45,9 +49,7 @@ class FuncTypeAST :public BaseAST{
     string str;
 
     void Dump() const override {
-        cout<<"FunctypeAST { ";
-        cout<<str;
-        cout<<" }";
+        cout<<"i32"<<" ";
     }
 };
 
@@ -56,9 +58,9 @@ class BlockAST: public BaseAST{
     unique_ptr<BaseAST> stmt;
 
     void Dump() const override{
-        cout<<"BlockAST { ";
+        cout<<"\%entry:"<<endl;
         stmt->Dump();
-        cout<<" }";
+        cout<<endl;
     }
 };
 
@@ -67,10 +69,21 @@ class StmtAST:public BaseAST{
     int number;
 
     void Dump() const override{
-        cout<<"StmtAST { ";
+        cout<<" ret ";
         cout<<number;
-        cout<<" }";
     }
 };
 
 // ...
+
+// 函数声明略
+void Visit(const koopa_raw_slice_t &slice);
+void Visit(const koopa_raw_function_t &func) ;
+void Visit(const koopa_raw_basic_block_t &bb) ;
+void Visit(const koopa_raw_value_t &value);
+void Visit(const koopa_raw_program_t &program);
+
+
+
+
+

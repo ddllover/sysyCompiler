@@ -1,0 +1,1 @@
+CompUnitAST { FuncDefAST { FunctypeAST { int }, main, BlockAST { StmtAST { 0 } } } }
