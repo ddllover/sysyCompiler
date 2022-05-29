@@ -1,8 +1,14 @@
-#pragma once
+#ifndef GRANDPARENT_H
+#define GRANDPARENT_H
 
-#include <iostream>
-#include<cassert>
 #include "koopa.h"
+
+#include<cassert>
+#include <iostream>
+#include <cstdio>
+#include <memory>
+#include <cstring>
+
 
 using namespace std;
 
@@ -69,7 +75,7 @@ class StmtAST:public BaseAST{
     int number;
 
     void Dump() const override{
-        cout<<" ret ";
+        cout<<"  ret ";
         cout<<number;
     }
 };
@@ -82,8 +88,12 @@ void Visit(const koopa_raw_function_t &func) ;
 void Visit(const koopa_raw_basic_block_t &bb) ;
 void Visit(const koopa_raw_value_t &value);
 void Visit(const koopa_raw_program_t &program);
+void AnalyzeIR(const char * str);
 
 
+
+
+#endif
 
 
 
