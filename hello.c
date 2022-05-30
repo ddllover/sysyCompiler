@@ -1,5 +1,3 @@
 int main() {
-  // 操作
-  /* g*/
-  return 10;
+  return 1 + 2 * 3;
 }

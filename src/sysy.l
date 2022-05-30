@@ -20,6 +20,7 @@ WhiteSpace    [ \t\n\r]*
 LineComment   "//".*
 MullineComment  "/*"([^\*]|(\*)*[^\*/])*(\*)*"*/"
 
+
 /* 标识符 */
 Identifier    [a-zA-Z_][a-zA-Z0-9_]*
 
@@ -27,7 +28,9 @@ Identifier    [a-zA-Z_][a-zA-Z0-9_]*
 Decimal       [1-9][0-9]*
 Octal         0[0-7]*
 Hexadecimal   0[xX][0-9a-fA-F]+
+/*运算符*/
 
+/* 利用 yylval 来传值 */
 %%
 
 {WhiteSpace}    { /* 忽略, 不做任何操作 */ }
@@ -37,6 +40,7 @@ Hexadecimal   0[xX][0-9a-fA-F]+
 
 "int"           { return INT; }
 "return"        { return RETURN; }
+
 
 {Identifier}    { yylval.str_val = new string(yytext); return IDENT; }
 

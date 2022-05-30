@@ -3,6 +3,8 @@
 //函数定义
 using namespace std;
 
+int BaseAST::count_all=-1;
+
 void Visit(const koopa_raw_return_t &ret) {
   cout<<"  li a0, ";
   Visit(ret.value);

@@ -34,9 +34,15 @@ int main(int argc, const char *argv[])
   // 输出解析得到的 AST, 其实就是个字符串
   if (strcmp("-koopa", mode) == 0)
   {
-    freopen(output, "w", stdout);
-    ast->Dump();
-    fclose(stdout);
+    string temp=ast->Dump();
+    FILE * fp=fopen(output,"w");
+    fprintf(fp,"%s",temp.c_str());
+    fclose(fp);
+    cout<<temp;
+
+    //freopen(output, "w", stdout);
+    //cout<<ast->Dump();
+    //fclose(stdout);
 
     /*freopen("/dev/console", "w", stdout);
 
@@ -63,15 +69,12 @@ int main(int argc, const char *argv[])
     size_t len=fread(str,sizeof(char),1000000,fp);
     str[len]='\0';
 
-    /*freopen("/dev/console", "w", stdout);
-    cout<<str;*/
-
     fclose(fp);
    
     freopen(output,"w",stdout);
     AnalyzeIR(str);
     fclose(stdout);
-    
+
   }
   return 0;
 }
