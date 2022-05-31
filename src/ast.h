@@ -1,7 +1,8 @@
 #ifndef GRANDPARENT_H
 #define GRANDPARENT_H
 
-#define DEBUG
+//#define DEBUG
+#define MAXCHARS 100000
 
 #include "koopa.h"
 
@@ -13,16 +14,19 @@
 
 using namespace std;
 
-// 所有 AST 的基类
 class BaseAST
 {
 public:
   virtual ~BaseAST() = default;
-  int count; //代表该节点结果的代数
   static int count_all;
-  int kind;
+  int count; //代表该节点结果的代数
+  int kind;  
   virtual string Dump() = 0;
 };
+
+string Dumpop(unique_ptr<BaseAST>  &op1,unique_ptr<BaseAST> &op2,const char *temp2,const char *temp1,const char * op);
+// 所有 AST 的基类
+string DumpUnaryOp(unique_ptr<BaseAST> &op1,const char *temp1,const char * op);
 // CompUnit 是 BaseAST
 class CompUnitAST : public BaseAST // CompUnit    ::= FuncDef;
 {
@@ -48,7 +52,7 @@ public:
 
   string Dump() override
   {
-    char temp[10000] = {0};
+    char temp[MAXCHARS] = {0};
     string temp_func_type = func_type->Dump();
     string temp_block = block->Dump();
     count = block->count;
@@ -65,7 +69,7 @@ public:
 
   string Dump() override
   {
-    char temp[10000] = {0};
+    char temp[MAXCHARS] = {0};
     sprintf(temp, "i32 ");
     return temp;
   }
@@ -78,7 +82,7 @@ public:
 
   string Dump() override
   {
-    char temp[10000] = {0};
+    char temp[MAXCHARS] = {0};
     string temp_stmt = stmt->Dump();
     count = stmt->count;
     sprintf(temp, "%%entry:\n%s", temp_stmt.c_str());
@@ -96,7 +100,7 @@ public:
 
   string Dump() override
   {
-    char temp[10000] = {0};
+    char temp[MAXCHARS] = {0};
 
     string temp_exp = exp->Dump();
     count = exp->count;
@@ -112,15 +116,15 @@ public:
   }
 };
 
-class ExpAST : public BaseAST // Exp         ::= AddExp;
+class ExpAST : public BaseAST // Exp         ::= LOrExp;
 {
 public:
-  unique_ptr<BaseAST> addExp;
+  unique_ptr<BaseAST> lorExp;
 
   string Dump() override
   {
-    string temp = addExp->Dump();
-    count = addExp->count;
+    string temp = lorExp->Dump();
+    count = lorExp->count;
     return temp;
   }
 };
@@ -133,7 +137,7 @@ public:
 
   string Dump() override
   {
-    char temp[10000] = {0};
+    char temp[MAXCHARS] = {0};
     if (kind == 1)
     {
       strcpy(temp,exp->Dump().c_str());
@@ -157,46 +161,21 @@ public:
 
   string Dump() override
   {
-    char temp[10000] = {0};
+    string temp;
     if (kind == 1)
     {
-      strcpy(temp,primary->Dump().c_str());
+      temp=primary->Dump();
       count = primary->count;
     }
     else if (kind == 2)
     {
       if (unaryop->kind == 1)
       { //正,不需要处理
-        strcpy(temp ,unaryexp->Dump().c_str());
+        temp =unaryexp->Dump();
         count = unaryexp->count;
       }
-      else if (unaryop->kind == 2)
-      { //负
-        string temp_unaryexp = unaryexp->Dump();
-
-        if (temp_unaryexp[0] !=' ') //非表达式 代表该部分前面没有任何运算
-        {
-          sprintf(temp, "  %%%d = sub 0, %s\n", count_all + 1, temp_unaryexp.c_str());
-        }
-        else
-        {
-          //最新的指令编号
-          sprintf(temp, "%s  %%%d = sub 0, %%%d\n", temp_unaryexp.c_str(), count_all + 1, unaryexp->count);
-        }
-        count_all++;
-        count = count_all;
-      }
-      else if (unaryop->kind == 3)
-      { //非
-        string temp_unaryexp = unaryexp->Dump();
-        if (temp_unaryexp[0] != ' ')
-        { // temp_unaryexp最终会返回一个数字
-          sprintf(temp, "  %%%d = eq %s, 0\n", count_all + 1, temp_unaryexp.c_str());
-        }
-        else
-        {
-          sprintf(temp, "%s  %%%d = eq %%%d, 0\n", temp_unaryexp.c_str(), count_all + 1, unaryexp->count);
-        }
+      else {
+        temp=DumpUnaryOp(unaryexp,unaryexp->Dump().c_str(),unaryop->Dump().c_str());
         count_all++;
         count = count_all;
       }
@@ -211,17 +190,7 @@ public:
   string str;
   string Dump() override
   {
-    char temp[100000] = {0};
-    if (kind == 1)
-    {
-    }
-    else if (kind == 2)
-    {
-    }
-    else if (kind == 3)
-    {
-    }
-    return temp;
+    return str;
   }
 };
 
@@ -234,74 +203,20 @@ public:
 
   string Dump() override
   {
-    char temp[100000] = {0};
+    string temp;
     if(kind==1){
-      strcpy(temp,unaryExp->Dump().c_str());
+      temp=unaryExp->Dump();
       count=unaryExp->count;
-      return temp;
     }
     else if(kind==2){
       //unaryexp 优先参与运算
-      string temp_unaryExp=unaryExp->Dump();
-      string temp_mulExp=mulExp->Dump();
-      if(mulop->kind==1)//*
-      { 
-        if(temp_mulExp[0]==' '){
-          if(temp_unaryExp[0]==' ') //mulexp为表达式 unaryexp为表达式
-            sprintf(temp,"%s%s  %%%d = mul %%%d, %%%d\n",temp_unaryExp.c_str(),temp_mulExp.c_str(),count_all+1,mulExp->count,unaryExp->count);
-          else 
-            sprintf(temp,"%s  %%%d = mul %%%d, %s\n",temp_mulExp.c_str(),count_all+1,mulExp->count,temp_unaryExp.c_str());
+      temp=Dumpop(mulExp,unaryExp,unaryExp->Dump().c_str(),mulExp->Dump().c_str(),mulop->Dump().c_str());
+      count_all++;
+      count=count_all;
 
-        }
-        else{
-          if(temp_unaryExp[0]==' ')
-            sprintf(temp,"%s  %%%d = mul %s, %%%d\n",temp_unaryExp.c_str(),count_all+1,temp_mulExp.c_str(),unaryExp->count);
-
-          else 
-            sprintf(temp,"  %%%d = mul %s, %s\n",count_all+1,temp_mulExp.c_str(),temp_unaryExp.c_str());
-        }
-        count_all++;
-        count=count_all;
-      }
-      else if(mulop->kind==2)// /
-      { 
-        if(temp_mulExp[0]==' '){
-          if(temp_unaryExp[0]==' ') //mulexp为表达式 unaryexp为表达式
-            sprintf(temp,"%s%s  %%%d = div %%%d, %%%d\n",temp_unaryExp.c_str(),temp_mulExp.c_str(),count_all+1,mulExp->count,unaryExp->count);
-          else 
-            sprintf(temp,"%s  %%%d = div %%%d, %s\n",temp_mulExp.c_str(),count_all+1,mulExp->count,temp_unaryExp.c_str());
-
-        }
-        else{
-          if(temp_unaryExp[0]==' ')
-            sprintf(temp,"%s  %%%d = div %s, %%%d\n",temp_unaryExp.c_str(),count_all+1,temp_mulExp.c_str(),unaryExp->count);
-
-          else 
-            sprintf(temp,"  %%%d = div %s, %s\n",count_all+1,temp_mulExp.c_str(),temp_unaryExp.c_str());
-        }
-        count_all++;
-        count=count_all;
-      }
-      else if(mulop->kind==3)// %
-      {
-        if(temp_mulExp[0]==' '){
-          if(temp_unaryExp[0]==' ') //mulexp为表达式 unaryexp为表达式
-            sprintf(temp,"%s%s  %%%d = mod %%%d, %%%d\n",temp_unaryExp.c_str(),temp_mulExp.c_str(),count_all+1,mulExp->count,unaryExp->count);
-          else 
-            sprintf(temp,"%s  %%%d = mod %%%d, %s\n",temp_mulExp.c_str(),count_all+1,mulExp->count,temp_unaryExp.c_str());
-
-        }
-        else{
-          if(temp_unaryExp[0]==' ')
-            sprintf(temp,"%s  %%%d = mod %s, %%%d\n",temp_unaryExp.c_str(),count_all+1,temp_mulExp.c_str(),unaryExp->count);
-
-          else 
-            sprintf(temp,"  %%%d = mod %s, %s\n",count_all+1,temp_mulExp.c_str(),temp_unaryExp.c_str());
-        }
-        count_all++;
-        count=count_all
-        ;
-      }
+      #ifdef DEBUG
+      cout<<temp;
+      #endif
     }
     return temp;
   }
@@ -315,90 +230,154 @@ public:
   unique_ptr<BaseAST> addExp;
   string Dump() override
   {
-    char temp[10000] = {0};
+    string temp;
     if (kind == 1)
     {
-      strcpy(temp , mulExp->Dump().c_str());
+      temp= mulExp->Dump();
       count = mulExp->count;
     }
     else if (kind == 2)
     { 
-      //mulexp先参与运算
-      string temp_mulExp = mulExp->Dump();  
-      string temp_addExp = addExp->Dump();
-      if (addOp->kind == 1) // +
-      {
-        if (temp_addExp[0] == ' ')
-        {
-          if (temp_mulExp[0] == ' ') // addexp为表达式，mulexp为表达式
-            sprintf(temp, "%s%s  %%%d = add %%%d, %%%d\n", temp_mulExp.c_str(), temp_addExp.c_str(), count_all + 1, addExp->count, mulExp->count);
-          else // addexp为表达式，mulexp为数字
-            sprintf(temp, "%s  %%%d = add %%%d, %s\n", temp_addExp.c_str(), count_all + 1, addExp->count, temp_mulExp.c_str());
-        }
-        else 
-        {
-          if (temp_mulExp[0] == ' ') // addexp为数字，mulexp为表达式
-            sprintf(temp, "%s  %%%d = add %s, %%%d\n", temp_mulExp.c_str(), count_all + 1, temp_addExp.c_str(), mulExp->count);
-          else
-            sprintf(temp, "  %%%d = add %s, %s\n", count_all + 1, temp_addExp.c_str(), temp_mulExp.c_str());
-        }
-        count_all++;
-        count=count_all;
-      }
-      else if (addOp->kind == 2) // -
-      {
-        if (temp_addExp[0] == ' ')
-        {
-          if (temp_mulExp[0] == ' ') // addexp为表达式，mulexp为表达式
-            sprintf(temp, "%s%s  %%%d = sub %%%d, %%%d\n", temp_addExp.c_str(), temp_mulExp.c_str(), count_all + 1, addExp->count, mulExp->count);
-          else // addexp为表达式，mulexp为数字
-            sprintf(temp, "%s  %%%d = sub %%%d, %s\n", temp_addExp.c_str(), count_all + 1, addExp->count, temp_mulExp.c_str());
-        }
-        else
-        {
-          if (temp_mulExp[0] == ' ') // addexp为数字，mulexp为表达式
-            sprintf(temp, "%s  %%%d = sub %s, %%%d\n", temp_mulExp.c_str(), count_all + 1, temp_addExp.c_str(), mulExp->count);
-          else
-            sprintf(temp, "  %%%d = sub %s, %s\n", count_all + 1, temp_addExp.c_str(), temp_mulExp.c_str());
-        }
-        count_all++;
-        count=count_all;
-      }
-    #ifdef DEBUG
-    cout<<temp<<endl;
-    #endif
+      temp=Dumpop(addExp,mulExp,mulExp->Dump().c_str(),addExp->Dump().c_str(),addOp->Dump().c_str() );
+      count_all++;
+      count=count_all;
+      
+
+      #ifdef DEBUG
+      cout<<temp<<endl;
+      #endif
+    }
+    return temp;
+
+  }
+};
+
+
+
+//RelExp      ::= AddExp | RelExp ("<" | ">" | "<=" | ">=") AddExp;
+class RelExpAST:public BaseAST{
+  public:
+  unique_ptr<BaseAST> addexp;
+  unique_ptr<BaseAST> relexp;
+  unique_ptr<BaseAST> relop;
+  string Dump() override{
+    string temp;
+    if(kind ==1){
+      temp=addexp->Dump();
+      count=addexp->count;
+    }
+    else if(kind==2){
+      temp=Dumpop(relexp,addexp,addexp->Dump().c_str(),relexp->Dump().c_str(),relop->Dump().c_str());
+      count_all++;
+      count=count_all;
+      #ifdef DEBUG
+      cout<<temp<<endl;
+      #endif
+    }
+     return temp;
+  }
+ 
+};
+
+//EqExp       ::= RelExp | EqExp ("==" | "!=") RelExp;
+class EqExpAST :public BaseAST{
+  public:
+  unique_ptr<BaseAST> relexp;
+  unique_ptr<BaseAST> eqexp;
+  unique_ptr<BaseAST> eqop;
+  string Dump() override{
+    string temp;
+    if(kind==1){
+      temp=relexp->Dump();
+      count=relexp->count;
+    }
+    else if(kind==2){
+      temp=Dumpop(eqexp,relexp,relexp->Dump().c_str(),eqexp->Dump().c_str(),eqop->Dump().c_str());
+      count_all++;
+      count=count_all;
+
+      #ifdef DEBUG
+      cout<<temp<<endl;
+      #endif
     }
 
     return temp;
-
   }
 };
 
-class AddOpAST : public BaseAST
-{
-public:
-  string str;
-  string Dump() override
-  {
-    char temp[10000] = {0};
-    return temp;
-  }
-};
-
-class MulOpAST : public BaseAST
-{
-public:
-  string str;
-  string Dump() override
-  {
-    char temp[10000] = {0};
-    return temp;
-  }
-};
-//RelExp      ::= AddExp | RelExp ("<" | ">" | "<=" | ">=") AddExp;
-//EqExp       ::= RelExp | EqExp ("==" | "!=") RelExp;
 //LAndExp     ::= EqExp | LAndExp "&&" EqExp;
+class LAndExpAST :public BaseAST{
+  public:
+  unique_ptr<BaseAST> eqexp;
+  unique_ptr<BaseAST> op; 
+  unique_ptr<BaseAST> landexp;
+  string Dump() override{
+    string temp;
+    if(kind==1){
+      temp=eqexp->Dump();
+      count=eqexp->count;
+    }
+    else if(kind==2){
+      // 先用ne 将数值转换为逻辑
+      string temp_eqexp=DumpUnaryOp(eqexp,eqexp->Dump().c_str(),"ne");
+      count_all++;
+      eqexp->count=count_all;
+
+      string temp_landexp=DumpUnaryOp(landexp,landexp->Dump().c_str(),"ne");
+      count_all++;
+      landexp->count=count_all;
+
+      temp=Dumpop(landexp,eqexp,temp_eqexp.c_str(),temp_landexp.c_str(),"and");
+      count_all++;
+      count=count_all;
+
+      #ifdef DEBUG
+      cout<<temp;
+      #endif
+    }
+    return temp;
+  }
+};
+
 //LOrExp      ::= LAndExp | LOrExp "||" LAndExp;
+class LOrExpAST:public BaseAST{
+  public:
+  unique_ptr<BaseAST> landexp;
+  unique_ptr<BaseAST> op;
+  unique_ptr<BaseAST> lorexp;
+  string Dump() override{
+    string temp;
+    if(kind==1){
+      temp=landexp->Dump();
+      count=landexp->count;
+    }
+    else if(kind==2){
+      temp=Dumpop(lorexp,landexp,landexp->Dump().c_str(),lorexp->Dump().c_str(),"or");
+      count_all++;
+      count=count_all;
+      
+      //按位或和逻辑或相同 将结果转换为逻辑
+      unique_ptr<BaseAST> temp_ptr=unique_ptr<BaseAST>(this);
+      temp=DumpUnaryOp(temp_ptr,temp.c_str(),"ne");
+      temp_ptr.release();
+      count_all++;
+      count=count_all;
+
+      #ifdef DEBUG
+      cout<<temp;
+      #endif
+    }
+    return temp;
+  }
+};
+
+class OpAST:public BaseAST{
+  public:
+  string str;
+  string Dump() override{
+    return str;
+  }
+};
 
 // ...
 
@@ -409,5 +388,7 @@ void Visit(const koopa_raw_basic_block_t &bb);
 void Visit(const koopa_raw_value_t &value);
 void Visit(const koopa_raw_program_t &program);
 void AnalyzeIR(const char *str);
+
+
 
 #endif

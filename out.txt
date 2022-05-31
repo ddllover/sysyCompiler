@@ -1,0 +1,46 @@
+run test in "-koopa" mode
+working directory: /root/wd
+make: Entering directory '/root/compiler'
+mkdir -p /root/wd/
+clang++ -I/root/compiler/src -I/root/wd -MMD -MP -Wall -Wno-register -std=c++17 -g -O0 -I/opt/include -c /root/wd/sysy.lex.cpp -o /root/wd/sysy.lex.cpp.o
+mkdir -p /root/wd/
+clang++ -I/root/compiler/src -I/root/wd -MMD -MP -Wall -Wno-register -std=c++17 -g -O0 -I/opt/include -c /root/wd/sysy.tab.cpp -o /root/wd/sysy.tab.cpp.o
+mkdir -p /root/wd/
+clang++ -I/root/compiler/src -I/root/wd -MMD -MP -Wall -Wno-register -std=c++17 -g -O0 -I/opt/include -c /root/compiler/src/ast.cpp -o /root/wd/ast.cpp.o
+mkdir -p /root/wd/
+clang++ -I/root/compiler/src -I/root/wd -MMD -MP -Wall -Wno-register -std=c++17 -g -O0 -I/opt/include -c /root/compiler/src/main.cpp -o /root/wd/main.cpp.o
+clang++ /root/wd/sysy.lex.cpp.o /root/wd/sysy.tab.cpp.o /root/wd/ast.cpp.o /root/wd/main.cpp.o  -L/opt/lib/native -lkoopa -lpthread -ldl -o /root/wd/compiler
+make: Leaving directory '/root/compiler'
+running test "00_pos" ... [0;32mPASSED[0m
+running test "01_neg_0" ... [0;32mPASSED[0m
+running test "02_neg_2" ... [0;32mPASSED[0m
+running test "03_neg_max" ... [0;32mPASSED[0m
+running test "04_not_0" ... [0;32mPASSED[0m
+running test "05_not_10" ... [0;32mPASSED[0m
+running test "06_complex_unary" ... [0;32mPASSED[0m
+running test "07_add" ... [0;32mPASSED[0m
+running test "08_add_neg" ... [0;32mPASSED[0m
+running test "09_sub" ... [0;32mPASSED[0m
+running test "10_sub_neg" ... [0;32mPASSED[0m
+running test "11_mul" ... [0;32mPASSED[0m
+running test "12_mul_neg" ... [0;32mPASSED[0m
+running test "13_div" ... [0;32mPASSED[0m
+running test "14_div_neg" ... [0;32mPASSED[0m
+running test "15_mod" ... [0;32mPASSED[0m
+running test "16_mod_neg" ... [0;32mPASSED[0m
+running test "17_lt" ... [0;32mPASSED[0m
+running test "18_gt" ... [0;32mPASSED[0m
+running test "19_le" ... [0;32mPASSED[0m
+running test "20_ge" ... [0;32mPASSED[0m
+running test "21_eq" ... [0;32mPASSED[0m
+running test "22_ne" ... [0;32mPASSED[0m
+running test "23_lor" ... [0;31mWRONG ANSWER[0m
+your answer:
+11
+running test "24_land" ... [0;31mWRONG ANSWER[0m
+your answer:
+0
+running test "25_int_min" ... [0;32mPASSED[0m
+running test "26_parentheses" ... [0;32mPASSED[0m
+running test "27_complex_binary" ... [0;32mPASSED[0m
+[0;31mWRONG ANSWER[0m (26/28)
