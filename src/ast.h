@@ -24,6 +24,19 @@ struct Symbol
 
 extern map<string, Symbol> Symbolmap;
 extern string btype_str; // 声明时变量类型，以便所有声明的变量种类初始化
+extern FILE * IR;
+
+void Visit(const koopa_raw_slice_t &slice);
+void Visit(const koopa_raw_function_t &func);
+void Visit(const koopa_raw_basic_block_t &bb);
+void Visit(const koopa_raw_value_t &value);
+void Visit(const koopa_raw_program_t &program);
+void AnalyzeIR(const char *str);
+
+string Dumpop( string temp1, string temp2,string op);
+string DumpUnaryOp(string temp1, string op);
+string DumpLoad(string lval);
+string DumpStore(string temp1,string lval);
 
 class Baseast
 {
@@ -37,9 +50,7 @@ public:
   virtual int Calc() = 0;
 };
 
-string Dumpop(unique_ptr<Baseast> &op1, unique_ptr<Baseast> &op2, const char *temp1, const char *temp2, const char *op);
 // 所有 ast 的基类
-string DumpUnaryOp(unique_ptr<Baseast> &op1, const char *temp1, const char *op);
 // CompUnit 是 Baseast
 class CompUnitast : public Baseast // CompUnit    ::= FuncDef;
 {
@@ -132,7 +143,7 @@ public:
   {
     Symbolmap.insert({ident, {0, constinitval->Calc(), btype_str}});
     #ifdef DEBUG
-    cout<<ident<<" "<<Symbolmap[ident].val<<endl;
+    cout<<"const:"<<ident<<" "<<Symbolmap[ident].val<<endl;
     #endif
     if (kind == 2)
     {
@@ -197,27 +208,27 @@ public:
   unique_ptr<Baseast> initval;
   unique_ptr<Baseast> vardef;
   string Dump() override
-  { //@ident = alloc btype_str
-    char temp[MAXCHARS] = {0};
-    char temp2[MAXCHARS] = {0};
-    char temp3[MAXCHARS] = {0};
-    sprintf(temp3, "  @%s = alloc i32\n", ident.c_str());
-    if (kind == 2 || kind == 4)
-    {
-      string initval_temp = initval->Dump();
-      if(initval_temp[0]==' '){
-        sprintf(temp2, "%s  store %%%d, @%s\n", initval_temp.c_str(),count_all ,ident.c_str());
-      }
-      else {
-        sprintf(temp2,"  store %s, @%s\n",initval_temp.c_str(),ident.c_str());
-      }
-    }
-      Symbolmap.insert({ident, {1, 0, btype_str}});//变量只需要保持符号
-    if (kind == 3 || kind == 4)
-      sprintf(temp, "%s%s%s", temp3, temp2, vardef->Dump().c_str());
-    else
-      sprintf(temp, "%s%s", temp3, temp2);
+  { 
+    string temp;
 
+    //变量只需要表明类型以及和const区分，值由IR计算
+    Symbolmap.insert({ident, {1, 0, btype_str}});
+    //vardef 声明 @ident = alloc btype_str
+    fprintf(IR,"  @%s = alloc i32\n", ident.c_str());
+
+    // 定义 store %count, @ident
+    if(kind==2||kind==4){ 
+        temp=DumpStore(initval->Dump(),ident);
+        count=initval->count;
+    }
+    else{
+      fprintf(IR,"\n"); //每个变量划分一个块便于debug
+    }
+
+    if(kind == 3 || kind == 4){
+      temp=vardef->Dump();
+      count=initval->count;
+    }
     return temp;
   }
   int Calc() override
@@ -233,7 +244,9 @@ public:
   unique_ptr<Baseast> exp;
   string Dump() override
   {
-    return exp->Dump();
+    string temp=exp->Dump();
+    count=exp->count;
+    return temp;
   }
   int Calc() override
   {
@@ -250,15 +263,13 @@ public:
   string Dump() override
   {
 
-    char temp[MAXCHARS] = {0};
+    string temp;
     if (blockitem->kind != 1) // blockitem 不为空 为空返回空
     {
-      string temp_stmt = blockitem->Dump();
+      fprintf(IR, "%%entry:\n");
+      temp= blockitem->Dump();
       count = blockitem->count;
-      sprintf(temp, "%%entry:\n%s", temp_stmt.c_str());
     }
-    // cout<<"\%entry:"<<endl;
-    // stmt->Dump();
     return temp;
   }
 
@@ -362,10 +373,7 @@ public:
       }
       else if (lval_sym.kind == 1)
       { // 变量
-        char temp1[MAXCHARS] = {0};
-        sprintf(temp1, "  %%%d = load @%s\n", count_all + 1, name.c_str());
-        temp = temp1;
-        count_all++;
+        temp=DumpLoad(name);
       }
       count = count_all;
     }
@@ -401,13 +409,14 @@ public:
 
   string Dump() override
   {
-    char temp[MAXCHARS] = {0};
-    string temp_func_type = func_type->Dump();
-    string temp_block = block->Dump();
+    string temp;
+    
+    fprintf(IR, "fun @%s(): %s{\n", ident.c_str(), func_type->Dump().c_str());
+    temp = block->Dump();
     count = block->count;
-    sprintf(temp, "fun @%s(): %s{\n%s}\n", ident.c_str(), temp_func_type.c_str(), temp_block.c_str());
+    fprintf(IR,"}\n");
 
-    return string(temp);
+    return temp;
   }
 
   int Calc() override
@@ -442,32 +451,17 @@ public:
   unique_ptr<Baseast> lval;
   string Dump() override
   {
-    char temp[MAXCHARS] = {0};
+    string temp;
     if (kind == 1)
     {
       string temp_exp = exp->Dump();
       count = exp->count;
-      if (temp_exp[0] != ' ') //非表达式
-      {
-        sprintf(temp, "  ret %s\n", temp_exp.c_str());
-      }
-      else
-      {
-        sprintf(temp, "%s  ret %%%d\n", temp_exp.c_str(), count_all);
-      }
+      fprintf(IR,"  ret %s\n",temp_exp.c_str());
     }
     else if (kind == 2) // load 在exp里面实现
     {                   // lval需要 store
-      string temp_exp = exp->Dump();
-      count = exp->count;
-      if (temp_exp[0] != ' ') //非表达式
-      {
-        sprintf(temp, "  store %s, @%s\n", temp_exp.c_str(), lval->Dump().c_str());
-      }
-      else
-      {
-        sprintf(temp, "%s  store %%%d, @%s\n", temp_exp.c_str(), count_all, lval->Dump().c_str());
-      }
+      temp=DumpStore(exp->Dump(),lval->Dump());
+      count=exp->count;
     }
     return temp;
   }
@@ -519,8 +513,7 @@ public:
       }
       else
       {
-        temp = DumpUnaryOp(unaryexp, unaryexp->Dump().c_str(), unaryop->Dump().c_str());
-        count_all++;
+        temp = DumpUnaryOp( unaryexp->Dump(), unaryop->Dump());
         count = count_all;
       }
     }
@@ -571,14 +564,9 @@ public:
     }
     else if (kind == 2)
     {
-      // unaryexp 优先参与运算
-      temp = Dumpop(mulExp, unaryExp, mulExp->Dump().c_str(), unaryExp->Dump().c_str(), mulop->Dump().c_str());
-      count_all++;
+      //可再分temp为空
+      temp=Dumpop( mulExp->Dump(), unaryExp->Dump(), mulop->Dump());
       count = count_all;
-
-#ifdef DEBUG
-      cout << temp;
-#endif
     }
     return temp;
   }
@@ -627,13 +615,8 @@ public:
     }
     else if (kind == 2)
     {
-      temp = Dumpop(addExp, mulExp,addExp->Dump().c_str(), mulExp->Dump().c_str(), addOp->Dump().c_str());
-      count_all++;
+      temp=Dumpop(addExp->Dump(), mulExp->Dump(), addOp->Dump());
       count = count_all;
-
-#ifdef DEBUG
-      cout << temp << endl;
-#endif
     }
     return temp;
   }
@@ -679,12 +662,8 @@ public:
     }
     else if (kind == 2)
     {
-      temp = Dumpop(relexp, addexp, relexp->Dump().c_str(), addexp->Dump().c_str(), relop->Dump().c_str());
-      count_all++;
+      temp=Dumpop( relexp->Dump(), addexp->Dump(), relop->Dump());
       count = count_all;
-#ifdef DEBUG
-      cout << temp << endl;
-#endif
     }
     return temp;
   }
@@ -739,13 +718,8 @@ public:
     }
     else if (kind == 2)
     {
-      temp = Dumpop(eqexp, relexp, eqexp->Dump().c_str(), relexp->Dump().c_str(), eqop->Dump().c_str());
-      count_all++;
+      temp=Dumpop( eqexp->Dump(), relexp->Dump(), eqop->Dump());
       count = count_all;
-
-#ifdef DEBUG
-      cout << temp << endl;
-#endif
     }
     return temp;
   }
@@ -787,23 +761,12 @@ public:
     else if (kind == 2)
     {
       // 先用ne 将数值转换为逻辑
-      string temp_landexp = DumpUnaryOp(landexp, landexp->Dump().c_str(), "ne");
-      count_all++;
-      landexp->count = count_all;
+      string temp_landexp = DumpUnaryOp( landexp->Dump(), "ne");
 
-      string temp_eqexp = DumpUnaryOp(eqexp, eqexp->Dump().c_str(), "ne");
-      count_all++;
-      eqexp->count = count_all;
+      string temp_eqexp = DumpUnaryOp( eqexp->Dump(), "ne");
 
-      
-
-      temp = Dumpop(landexp, eqexp, temp_landexp.c_str(), temp_eqexp.c_str(), "and");
-      count_all++;
+      temp=Dumpop(temp_landexp,temp_eqexp, "and");
       count = count_all;
-
-#ifdef DEBUG
-      cout << temp;
-#endif
     }
     return temp;
   }
@@ -841,20 +804,12 @@ public:
     }
     else if (kind == 2)
     {
-      temp = Dumpop(lorexp, landexp, lorexp->Dump().c_str(), landexp->Dump().c_str(), "or");
-      count_all++;
-      count = count_all;
+      temp=Dumpop( lorexp->Dump(), landexp->Dump(), "or");
 
       //按位或和逻辑或相同 将结果转换为逻辑
-      unique_ptr<Baseast> temp_ptr = unique_ptr<Baseast>(this);
-      temp = DumpUnaryOp(temp_ptr, temp.c_str(), "ne");
-      temp_ptr.release();
-      count_all++;
+      temp = DumpUnaryOp( temp, "ne");
+    
       count = count_all;
-
-#ifdef DEBUG
-      cout << temp;
-#endif
     }
     return temp;
   }
@@ -892,11 +847,7 @@ public:
 // ...
 
 // 函数声明略
-void Visit(const koopa_raw_slice_t &slice);
-void Visit(const koopa_raw_function_t &func);
-void Visit(const koopa_raw_basic_block_t &bb);
-void Visit(const koopa_raw_value_t &value);
-void Visit(const koopa_raw_program_t &program);
-void AnalyzeIR(const char *str);
+
+
 
 #endif

@@ -1,3 +1,5 @@
 *.DS_Store
 /build
 /debug
+/input.c
+/out.koopa

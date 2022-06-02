@@ -9,11 +9,6 @@ using namespace std;
 extern FILE *yyin;
 extern int yyparse(unique_ptr<Baseast> &ast);
 
-//
-
-//return 
-
-
 int main(int argc, const char *argv[])
 {
   // 解析命令行参数. 测试脚本/评测平台要求你的编译器能接收如下参数:
@@ -34,29 +29,23 @@ int main(int argc, const char *argv[])
   // 输出解析得到的 ast, 其实就是个字符串
   if (strcmp("-koopa", mode) == 0)
   {
+    IR=fopen(output,"w");
+
     ast->Calc();
-    string temp=ast->Dump();
-    FILE * fp=fopen(output,"w");
-    fprintf(fp,"%s",temp.c_str());
-    fclose(fp);
-    cout<<temp;
 
-    //freopen(output, "w", stdout);
-    //cout<<ast->Dump();
-    //fclose(stdout);
-
-    /*freopen("/dev/console", "w", stdout);
-
-    fp=fopen(output,"r");
-    char  str[100000]={0};
-    str[fread(str,sizeof(*str),100000,fp)]='\0';
+    ast->Dump();
     
-    cout<<str<<endl;
-    fclose(fp);*/
+    /*char str[MAXCHARS]={0};
+    size_t len=fread(str,sizeof(char),MAXCHARS,IR);
+    str[len]='\0';
+    cout<<str;*/
+
+    fclose(IR);
+
   }
   else if(strcmp("-riscv",mode)==0){
     //先转化成IR
-    freopen("IR.koopa", "w", stdout);
+    /*freopen("IR.koopa", "w", stdout);
     ast->Dump();
     fclose(stdout);
     //cout<<"ok"<<endl;
@@ -75,7 +64,7 @@ int main(int argc, const char *argv[])
     freopen(output,"w",stdout);
     AnalyzeIR(str);
     fclose(stdout);
-
+    */
   }
   return 0;
 }
