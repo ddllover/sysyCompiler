@@ -125,7 +125,7 @@ void AnalyzeIR(const char *str)
   koopa_delete_raw_program_builder(builder);
 }
 
-string Dumpop(unique_ptr<Baseast> &op1, unique_ptr<Baseast> &op2,const char *temp2,const char *temp1, const char *op)
+string Dumpop(unique_ptr<Baseast> &op1, unique_ptr<Baseast> &op2,const char *temp1,const char *temp2, const char *op)
 {
   char temp[MAXCHARS] = {0};
   //char temp1[MAXCHARS] = {0};
@@ -134,7 +134,7 @@ string Dumpop(unique_ptr<Baseast> &op1, unique_ptr<Baseast> &op2,const char *tem
   if (temp1[0] == ' ')
   {
     if (temp2[0] == ' ') // op1为表达式，op2为表达式
-      sprintf(temp, "%s%s  %%%d = %s %%%d, %%%d\n", temp2, temp1, Baseast::count_all + 1, op, op1->count, op2->count);
+      sprintf(temp, "%s%s  %%%d = %s %%%d, %%%d\n", temp1, temp2, Baseast::count_all + 1, op, op1->count, op2->count);
     else // op1为表达式，op2为数字
       sprintf(temp, "%s  %%%d = %s %%%d, %s\n", temp1, Baseast::count_all + 1, op, op1->count, temp2);
   }

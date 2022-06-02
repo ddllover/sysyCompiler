@@ -37,7 +37,7 @@ public:
   virtual int Calc() = 0;
 };
 
-string Dumpop(unique_ptr<Baseast> &op1, unique_ptr<Baseast> &op2, const char *temp2, const char *temp1, const char *op);
+string Dumpop(unique_ptr<Baseast> &op1, unique_ptr<Baseast> &op2, const char *temp1, const char *temp2, const char *op);
 // 所有 ast 的基类
 string DumpUnaryOp(unique_ptr<Baseast> &op1, const char *temp1, const char *op);
 // CompUnit 是 Baseast
@@ -572,7 +572,7 @@ public:
     else if (kind == 2)
     {
       // unaryexp 优先参与运算
-      temp = Dumpop(mulExp, unaryExp, unaryExp->Dump().c_str(), mulExp->Dump().c_str(), mulop->Dump().c_str());
+      temp = Dumpop(mulExp, unaryExp, mulExp->Dump().c_str(), unaryExp->Dump().c_str(), mulop->Dump().c_str());
       count_all++;
       count = count_all;
 
@@ -627,7 +627,7 @@ public:
     }
     else if (kind == 2)
     {
-      temp = Dumpop(addExp, mulExp, mulExp->Dump().c_str(), addExp->Dump().c_str(), addOp->Dump().c_str());
+      temp = Dumpop(addExp, mulExp,addExp->Dump().c_str(), mulExp->Dump().c_str(), addOp->Dump().c_str());
       count_all++;
       count = count_all;
 
@@ -679,7 +679,7 @@ public:
     }
     else if (kind == 2)
     {
-      temp = Dumpop(relexp, addexp, addexp->Dump().c_str(), relexp->Dump().c_str(), relop->Dump().c_str());
+      temp = Dumpop(relexp, addexp, relexp->Dump().c_str(), addexp->Dump().c_str(), relop->Dump().c_str());
       count_all++;
       count = count_all;
 #ifdef DEBUG
@@ -739,7 +739,7 @@ public:
     }
     else if (kind == 2)
     {
-      temp = Dumpop(eqexp, relexp, relexp->Dump().c_str(), eqexp->Dump().c_str(), eqop->Dump().c_str());
+      temp = Dumpop(eqexp, relexp, eqexp->Dump().c_str(), relexp->Dump().c_str(), eqop->Dump().c_str());
       count_all++;
       count = count_all;
 
@@ -787,15 +787,17 @@ public:
     else if (kind == 2)
     {
       // 先用ne 将数值转换为逻辑
-      string temp_eqexp = DumpUnaryOp(eqexp, eqexp->Dump().c_str(), "ne");
-      count_all++;
-      eqexp->count = count_all;
-
       string temp_landexp = DumpUnaryOp(landexp, landexp->Dump().c_str(), "ne");
       count_all++;
       landexp->count = count_all;
 
-      temp = Dumpop(landexp, eqexp, temp_eqexp.c_str(), temp_landexp.c_str(), "and");
+      string temp_eqexp = DumpUnaryOp(eqexp, eqexp->Dump().c_str(), "ne");
+      count_all++;
+      eqexp->count = count_all;
+
+      
+
+      temp = Dumpop(landexp, eqexp, temp_landexp.c_str(), temp_eqexp.c_str(), "and");
       count_all++;
       count = count_all;
 
@@ -839,7 +841,7 @@ public:
     }
     else if (kind == 2)
     {
-      temp = Dumpop(lorexp, landexp, landexp->Dump().c_str(), lorexp->Dump().c_str(), "or");
+      temp = Dumpop(lorexp, landexp, lorexp->Dump().c_str(), landexp->Dump().c_str(), "or");
       count_all++;
       count = count_all;
 
