@@ -35,10 +35,13 @@ int main(int argc, const char *argv[])
 
     ast->Dump();
     
-    /*char str[MAXCHARS]={0};
+    fclose(IR);
+    
+    IR=fopen(output,"r");
+    char str[MAXCHARS]={0};
     size_t len=fread(str,sizeof(char),MAXCHARS,IR);
     str[len]='\0';
-    cout<<str;*/
+    cout<<str;
 
     fclose(IR);
 
