@@ -1,9 +1,10 @@
-
 #include "ast.h"
 //函数定义
 using namespace std;
 
-int BaseAST::count_all = -1;
+int Baseast::count_all = -1;
+map<string, Symbol> Symbolmap;
+string btype_str;
 
 void Visit(const koopa_raw_return_t &ret)
 {
@@ -124,7 +125,7 @@ void AnalyzeIR(const char *str)
   koopa_delete_raw_program_builder(builder);
 }
 
-string Dumpop(unique_ptr<BaseAST> &op1, unique_ptr<BaseAST> &op2,const char *temp2,const char *temp1, const char *op)
+string Dumpop(unique_ptr<Baseast> &op1, unique_ptr<Baseast> &op2,const char *temp2,const char *temp1, const char *op)
 {
   char temp[MAXCHARS] = {0};
   //char temp1[MAXCHARS] = {0};
@@ -133,32 +134,32 @@ string Dumpop(unique_ptr<BaseAST> &op1, unique_ptr<BaseAST> &op2,const char *tem
   if (temp1[0] == ' ')
   {
     if (temp2[0] == ' ') // op1为表达式，op2为表达式
-      sprintf(temp, "%s%s  %%%d = %s %%%d, %%%d\n", temp2, temp1, BaseAST::count_all + 1, op, op1->count, op2->count);
+      sprintf(temp, "%s%s  %%%d = %s %%%d, %%%d\n", temp2, temp1, Baseast::count_all + 1, op, op1->count, op2->count);
     else // op1为表达式，op2为数字
-      sprintf(temp, "%s  %%%d = %s %%%d, %s\n", temp1, BaseAST::count_all + 1, op, op1->count, temp2);
+      sprintf(temp, "%s  %%%d = %s %%%d, %s\n", temp1, Baseast::count_all + 1, op, op1->count, temp2);
   }
   else
   {
     if (temp2[0] == ' ') // op1为数字，op2为表达式
-      sprintf(temp, "%s  %%%d = %s %s, %%%d\n", temp2, BaseAST::count_all + 1, op, temp1, op2->count);
+      sprintf(temp, "%s  %%%d = %s %s, %%%d\n", temp2, Baseast::count_all + 1, op, temp1, op2->count);
     else
-      sprintf(temp, "  %%%d = %s %s, %s\n", BaseAST::count_all + 1, op, temp1, temp2);
+      sprintf(temp, "  %%%d = %s %s, %s\n", Baseast::count_all + 1, op, temp1, temp2);
   }
   return temp;
 }
 
-string DumpUnaryOp(unique_ptr<BaseAST> &op1,const char *temp1, const char *op)
+string DumpUnaryOp(unique_ptr<Baseast> &op1,const char *temp1, const char *op)
 {
   char temp[MAXCHARS] = {0};
   //strcpy(temp1, op1->Dump().c_str());
   if (temp1[0] != ' ') //非表达式 代表该部分前面没有任何运算
   {
-    sprintf(temp, "  %%%d = %s 0, %s\n", BaseAST::count_all + 1, op, temp1);
+    sprintf(temp, "  %%%d = %s 0, %s\n", Baseast::count_all + 1, op, temp1);
   }
   else
   {
     //最新的指令编号
-    sprintf(temp, "%s  %%%d = %s 0, %%%d\n", temp1, BaseAST::count_all + 1, op, op1->count);
+    sprintf(temp, "%s  %%%d = %s 0, %%%d\n", temp1, Baseast::count_all + 1, op, op1->count);
   }
   return temp;
 }

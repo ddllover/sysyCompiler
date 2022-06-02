@@ -7,7 +7,7 @@ using namespace std;
 // 你的代码编辑器/IDE 很可能找不到这个文件, 然后会给你报错 (虽然编译不会出错)
 // 看起来会很烦人, 于是干脆采用这种看起来 dirty 但实际很有效的手段
 extern FILE *yyin;
-extern int yyparse(unique_ptr<BaseAST> &ast);
+extern int yyparse(unique_ptr<Baseast> &ast);
 
 //
 
@@ -28,12 +28,13 @@ int main(int argc, const char *argv[])
   assert(yyin);
 
   // 调用 parser 函数, parser 函数会进一步调用 lexer 解析输入文件的
-  unique_ptr<BaseAST> ast;
+  unique_ptr<Baseast> ast;
   auto ret = yyparse(ast);
   assert(!ret);
-  // 输出解析得到的 AST, 其实就是个字符串
+  // 输出解析得到的 ast, 其实就是个字符串
   if (strcmp("-koopa", mode) == 0)
   {
+    ast->Calc();
     string temp=ast->Dump();
     FILE * fp=fopen(output,"w");
     fprintf(fp,"%s",temp.c_str());
