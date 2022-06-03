@@ -1,8 +1,23 @@
 #include "ast.h"
 int Baseast::count_all = -1;
-map<string, Symbol> Symbolmap;
 string btype_str;
 FILE * IR;
+Symboltab * fun_symtab=new Symboltab(0);
+Symboltab * dump_symtab=fun_symtab;
+
+Symboltab* Symtab_find(Symboltab * node,string str){
+  while(node){
+    auto search=node->symbolmap.find(str);
+    if(search!=node->symbolmap.end()){
+      break;
+    }
+    else node=node->father;
+  }
+  if(!node) {
+    perror("Don't find this symbol\n");
+  }
+  return node;
+}
 
 string Dumpop(string temp1,string temp2, string op)
 {
@@ -34,6 +49,11 @@ string DumpLoad(string lval){
 
 string DumpStore(string temp1,string lval){
   fprintf(IR,"  store %s, @%s\n\n",temp1.c_str(),lval.c_str());
+  return temp1;
+}
+
+string DumpAlloc(string temp1){
+  fprintf(IR, "  @%s = alloc i32\n", temp1.c_str());
   return temp1;
 }
 

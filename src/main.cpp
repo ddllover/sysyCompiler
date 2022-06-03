@@ -30,20 +30,20 @@ int main(int argc, const char *argv[])
   if (strcmp("-koopa", mode) == 0)
   {
     IR=fopen(output,"w");
-
-    ast->Calc();
-
+    //计算const
+    //ast->Calc();
+    //生成IR
     ast->Dump();
-    
     fclose(IR);
     
+    #ifdef DEBUG
     IR=fopen(output,"r");
     char str[MAXCHARS]={0};
     size_t len=fread(str,sizeof(char),MAXCHARS,IR);
     str[len]='\0';
     cout<<str;
-
     fclose(IR);
+    #endif
 
   }
   else if(strcmp("-riscv",mode)==0){

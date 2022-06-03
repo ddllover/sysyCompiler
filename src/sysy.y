@@ -148,7 +148,7 @@ ConstInitVal  :
     $$=ast;
   }
 ;
-
+//ConstExp      ::= Exp;
 ConstExp: 
   Exp{
   auto ast=new ConstExpast();
@@ -273,14 +273,8 @@ PrimaryExp:
   }
 ;
 
-//ConstExp      ::= Exp;
 
-
-
-
-
-
-//Stmt          ::= LVal "=" Exp ";" | "return" Exp ";";
+//Stmt          ::= "return" Exp ";"|LVal "=" Exp ";"| [Exp] ";"|block
 Stmt: 
   RETURN Exp ';' {
     auto ast=new Stmtast();
@@ -293,6 +287,26 @@ Stmt:
     ast->kind=2;
     ast->lval=unique_ptr<Baseast>($1);
     ast->exp=unique_ptr<Baseast>($3);
+    $$=ast;
+  }
+  | ';'
+  {
+    auto ast=new Stmtast();
+    ast->kind=3;
+    $$=ast;
+  }
+  | Exp ';'
+  {
+    auto ast=new Stmtast();
+    ast->kind=4;
+    ast->exp=unique_ptr<Baseast>($1);
+    $$=ast;
+  }
+  |Block
+  {
+    auto ast=new Stmtast();
+    ast->kind=5;
+    ast->block=unique_ptr<Baseast>($1);
     $$=ast;
   }
   ;
