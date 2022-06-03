@@ -13,9 +13,7 @@ Symboltab* Symtab_find(Symboltab * node,string str){
     }
     else node=node->father;
   }
-  if(!node) {
-    perror("Don't find this symbol\n");
-  }
+  assert(node);
   return node;
 }
 

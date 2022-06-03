@@ -30,6 +30,7 @@ int main(int argc, const char *argv[])
   if (strcmp("-koopa", mode) == 0)
   {
     IR=fopen(output,"w");
+    assert(IR);
     //计算const
     //ast->Calc();
     //生成IR

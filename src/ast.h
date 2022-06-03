@@ -363,10 +363,7 @@ public:
   {
     Symboltab *lval_symtab = Symtab_find(dump_symtab, ident);
     Symbol lval_sym = lval_symtab->symbolmap[ident];
-    if (lval_sym.kind != 0)
-    {
-      perror("Calc(),this lval is't const\n");
-    }
+    assert(!lval_sym.kind);
     return lval_sym.val;
   }
 };
@@ -484,7 +481,7 @@ public:
     string temp;
     if (kind == 1)
     {
-      fprintf(IR, "  ret %s\n", exp->Dump().c_str());
+      fprintf(IR, "  ret %s\n\n", exp->Dump().c_str());
       count = exp->count;
     }
     else if (kind == 2) // lval 在exp中需要load
