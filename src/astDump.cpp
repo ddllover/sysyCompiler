@@ -2,18 +2,22 @@
 int Baseast::count_all = -1;
 string btype_str;
 FILE * IR;
-Symboltab * fun_symtab=new Symboltab(0);
-Symboltab * dump_symtab=fun_symtab;
-
-Symboltab* Symtab_find(Symboltab * node,string str){
-  while(node){
-    auto search=node->symbolmap.find(str);
-    if(search!=node->symbolmap.end()){
+Fun_sym fun_symtab;
+map<string, Symbol> symbolmap;
+Symbol Symbol_find(string str){
+  Symbol node;
+  if(symbolmap.find(str)!=symbolmap.end()){
+    return symbolmap[str];
+  }
+  int i=fun_symtab.vec_symbolmap.size()-1;
+  for(;i>=0;i--)
+  {
+    if(fun_symtab.vec_symbolmap[i].find(str)!=fun_symtab.vec_symbolmap[i].end()){
+      node=fun_symtab.vec_symbolmap[i][str];
       break;
     }
-    else node=node->father;
   }
-  assert(node);
+  assert(i);
   return node;
 }
 
@@ -37,21 +41,21 @@ string DumpUnaryOp(string temp1, string op)
   return temp;
 }
 
-string DumpLoad(string lval){
+string DumpLoad(string lval,int block_num){
   char temp[MAXCHARS]={0};
   Baseast::count_all++;
   sprintf(temp,"%%%d",Baseast::count_all);
-  fprintf(IR,"  %s = load @%s\n",temp,lval.c_str());
+  fprintf(IR,"  %s = load @%s_%d\n",temp,lval.c_str(),block_num);
   return temp;
 }
 
-string DumpStore(string temp1,string lval){
-  fprintf(IR,"  store %s, @%s\n\n",temp1.c_str(),lval.c_str());
+string DumpStore(string temp1,string lval,int block_num){
+  fprintf(IR,"  store %s, @%s_%d\n\n",temp1.c_str(),lval.c_str(),block_num);
   return temp1;
 }
 
-string DumpAlloc(string temp1){
-  fprintf(IR, "  @%s = alloc i32\n", temp1.c_str());
+string DumpAlloc(string temp1,int block_num){
+  fprintf(IR, "  @%s_%d = alloc i32\n", temp1.c_str(),block_num);
   return temp1;
 }
 

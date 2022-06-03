@@ -23,28 +23,21 @@ struct Symbol
   int kind;    // 0为const常量 1为符号变量
   int val;     // 没有初始化时，默认为0
   string type; //变量类型
+  int block_num; //记录符号所属于的block
 };
-
-// typedef map<string, Symbol> Symbolmap;
-
-struct Symboltab
-{                                //每个函数一个层次符号表
-  int num;                       //记录同层节点次序
-  map<string, Symbol> symbolmap; //本层符号表
-  vector<Symboltab *> symbolnode;
-  Symboltab *father; //记录一下父节点方便查询
-  string str;        //变量名采用 name_str的方法 str=str_num...
-  Symboltab(int a)
+struct Fun_sym //每个函数一个层次符号表
+{                                
+  int block_num;  //记录block的个数，用于命名防止名称重复
+  vector<map<string, Symbol>> vec_symbolmap;; //符号表
+  Fun_sym()
   {
-    num = a;
-    father = nullptr;
+    block_num = 0;
   }
 };
+extern Fun_sym fun_symtab;  //用于查询上级符号表
+extern map<string, Symbol> symbolmap; //代表当前block符号表,便于操作
 
-extern Symboltab *fun_symtab;
-extern Symboltab *dump_symtab; //代表当前的符号表所在层数
-
-Symboltab *Symtab_find(Symboltab *node, string str);
+Symbol Symbol_find(string str);
 
 void Visit(const koopa_raw_slice_t &slice);
 void Visit(const koopa_raw_function_t &func);
@@ -55,9 +48,9 @@ void AnalyzeIR(const char *str);
 
 string Dumpop(string temp1, string temp2, string op);
 string DumpUnaryOp(string temp1, string op);
-string DumpLoad(string lval);
-string DumpStore(string temp1, string lval);
-string DumpAlloc(string temp1);
+string DumpLoad(string lval,int block_num);
+string DumpStore(string temp1, string lval,int block_num);
+string DumpAlloc(string temp1,int block_num);
 
 class Baseast
 {
@@ -71,9 +64,8 @@ public:
   virtual int Calc() = 0;
 };
 
-// 所有 ast 的基类
-// CompUnit 是 Baseast
-class CompUnitast : public Baseast // CompUnit    ::= FuncDef;
+// CompUnit    ::= FuncDef;
+class CompUnitast : public Baseast 
 {
 public:
   // 用智能指针管理对象
@@ -161,9 +153,9 @@ public:
   }
   int Calc() override
   {
-    dump_symtab->symbolmap.insert({ident, {0, constinitval->Calc(), btype_str}});
+    symbolmap.insert({ident, {0, constinitval->Calc(), btype_str,fun_symtab.block_num}});
     #ifdef DEBUG
-        cout << "const:" << ident << " " << dump_symtab->symbolmap[ident].val << endl;
+        cout << "const:" << ident << " " << symbolmap[ident].val << endl;
     #endif
     if (kind == 2)
     {
@@ -233,15 +225,15 @@ public:
 
     //变量只需要表明类型以及和const区分，值由IR计算
 
-    dump_symtab->symbolmap.insert({ident, {1, 0, btype_str}});
+    symbolmap.insert({ident, {1, 0, btype_str,fun_symtab.block_num}});
 
     //  vardef 声明 @ident = alloc btype_str
-    DumpAlloc(ident + dump_symtab->str);
+    DumpAlloc(ident,fun_symtab.block_num);
 
     // 定义 store %count, @ident
     if (kind == 2 || kind == 4)
     {
-      temp = DumpStore(initval->Dump(), ident + dump_symtab->str);
+      temp = DumpStore(initval->Dump(), ident,fun_symtab.block_num);
       count = initval->count;
     }
     else
@@ -284,29 +276,22 @@ class Blockast : public Baseast
 {
 public:
   unique_ptr<Baseast> blockitem;
-  Symboltab *last_block_symtab;
   string Dump() override
   {
 
     string temp;
-    if (blockitem->kind != 1) // blockitem 不为空 为空返回空
+    if (blockitem->kind != 1) // blockitem 不为空 为空返回空  空{}不计入block_num
     {
-      last_block_symtab = dump_symtab; //建立新一级的符号表,并记录父亲节点
-
-      dump_symtab = new Symboltab(last_block_symtab->symbolnode.size() + 1);
-      dump_symtab->father = last_block_symtab;
-      dump_symtab->str = last_block_symtab->str + string("_") + to_string(dump_symtab->num);
-
-      last_block_symtab->symbolnode.push_back(dump_symtab);
+      //建立新的符号表
+      fun_symtab.vec_symbolmap.push_back(symbolmap);
+      fun_symtab.block_num++;
+      symbolmap.clear();
 
       temp = blockitem->Dump();
       count = blockitem->count;
 
-      dump_symtab = last_block_symtab;
-    }
-    else {
-      temp = blockitem->Dump();
-      count = blockitem->count;
+      symbolmap=fun_symtab.vec_symbolmap.back();
+      fun_symtab.vec_symbolmap.pop_back();
     }
     return temp;
   }
@@ -361,8 +346,9 @@ public:
   }
   int Calc() override //返回value
   {
-    Symboltab *lval_symtab = Symtab_find(dump_symtab, ident);
-    Symbol lval_sym = lval_symtab->symbolmap[ident];
+
+    Symbol lval_sym=Symbol_find(ident);
+    //Symbol lval_sym = lval_symtab->symbolmap[ident];
     assert(!lval_sym.kind);
     return lval_sym.val;
   }
@@ -392,15 +378,15 @@ public:
     else if (kind == 3)
     {
       string ident=lval->Dump();
-      Symboltab *lval_symtab = Symtab_find(dump_symtab, ident);
-      Symbol lval_sym = lval_symtab->symbolmap[ident];
+      //Symboltab *lval_symtab = Symtab_find(dump_symtab, ident);
+      Symbol lval_sym = Symbol_find(ident);
       if (lval_sym.kind == 0)
       { // const常量
         temp = to_string(lval_sym.val);
       }
       else if (lval_sym.kind == 1)
       { // 变量
-        temp = DumpLoad(ident + lval_symtab->str);
+        temp = DumpLoad(ident , lval_sym.block_num);
       }
 
       count = count_all;
@@ -487,9 +473,9 @@ public:
     else if (kind == 2) // lval 在exp中需要load
     {                   // lval 在stmt需要 store
       string ident=lval->Dump();
-      Symboltab *lval_symtab=Symtab_find(dump_symtab,ident);
+      Symbol lval_sym=Symbol_find(ident);
 
-      temp = DumpStore(exp->Dump(), ident+lval_symtab->str);
+      temp = DumpStore(exp->Dump(), ident,lval_sym.block_num);
       count = exp->count;
     }
     else if (kind == 3)
