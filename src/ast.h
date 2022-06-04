@@ -21,7 +21,7 @@ class Baseast
 public:
   virtual ~Baseast() = default;
   static int count_all;
-  int count; //代表该节点结果的代数
+  //int count; //代表该节点结果的代数
   int kind;  //字节点序号
 
   virtual string Dump() = 0;
@@ -89,8 +89,8 @@ public:
 
   string Dump() override // override确保虚函数覆盖基类的虚函数
   {
-    string temp = func_def->Dump();
-    count = func_def->count;
+    string temp;
+    func_def->Dump();
     return temp;
   }
 
@@ -250,7 +250,6 @@ public:
     if (kind == 2 || kind == 4)
     {
       temp = DumpStore(initval->Dump(), ident, fun_symtab.block_num);
-      count = initval->count;
     }
     else
     {
@@ -260,7 +259,6 @@ public:
     if (kind == 3 || kind == 4)
     {
       temp = vardef->Dump();
-      count = initval->count;
     }
     return temp;
   }
@@ -278,7 +276,6 @@ public:
   string Dump() override
   {
     string temp = exp->Dump();
-    count = exp->count;
     return temp;
   }
   int Calc() override
@@ -304,7 +301,6 @@ public:
       symbolmap.clear();
 
       temp = blockitem->Dump();
-      count = blockitem->count;
 
       symbolmap = fun_symtab.vec_symbolmap.back();
       fun_symtab.vec_symbolmap.pop_back();
@@ -387,12 +383,10 @@ public:
     if (kind == 1)
     {
       temp = exp->Dump();
-      count = exp->count;
     }
     else if (kind == 2)
     {
       temp = to_string(number);
-      count = count_all;
     }
     else if (kind == 3)
     {
@@ -407,8 +401,6 @@ public:
       { // 变量
         temp = DumpLoad(ident, lval_sym.block_num);
       }
-
-      count = count_all;
     }
     return temp;
   }
@@ -445,7 +437,6 @@ public:
 
     fprintf(IR, "fun @%s(): %s{\n%%entry:\n", ident.c_str(), func_type->Dump().c_str());
     temp = block->Dump();
-    count = block->count;
     fprintf(IR, "}\n");
 
     return temp;
@@ -561,7 +552,6 @@ public:
     {
       fprintf(IR, "  ret %s\n\n", exp->Dump().c_str());
       ret_flag=true;
-      count = exp->count;
     }
     else if (kind == 3) // LVal "=" Exp ";"
     {
@@ -570,7 +560,6 @@ public:
       Symbol lval_sym = Symbol_find(ident);
 
       DumpStore(exp->Dump(), ident, lval_sym.block_num);
-      count = exp->count;
     }
     else if (kind == 4) //';'
     {
@@ -579,12 +568,10 @@ public:
     else if (kind == 5) // exp ';'
     {
       exp->Dump();
-      count = exp->count;
     }
     else if (kind == 6) // Block
     {                   //符号表加深一层
       temp = block->Dump();
-      count = block->count;
     }
     else if (kind == 7) // IF '(' Exp ')' Exma ELSE Exma
     { 
@@ -627,7 +614,6 @@ public:
   string Dump() override
   {
     string temp = lorExp->Dump();
-    count = lorExp->count;
     return temp;
   }
   int Calc() override
@@ -649,19 +635,16 @@ public:
     if (kind == 1)
     {
       temp = primary->Dump();
-      count = primary->count;
     }
     else if (kind == 2)
     {
       if (unaryop->kind == 1)
       { //正,不需要处理
         temp = unaryexp->Dump();
-        count = unaryexp->count;
       }
       else
       {
         temp = DumpUnaryOp(unaryexp->Dump(), unaryop->Dump());
-        count = count_all;
       }
     }
     return temp;
@@ -707,13 +690,11 @@ public:
     if (kind == 1)
     {
       temp = unaryExp->Dump();
-      count = unaryExp->count;
     }
     else if (kind == 2)
     {
       //可再分temp为空
       temp = Dumpop(mulExp->Dump(), unaryExp->Dump(), mulop->Dump());
-      count = count_all;
     }
     return temp;
   }
@@ -758,12 +739,10 @@ public:
     if (kind == 1)
     {
       temp = mulExp->Dump();
-      count = mulExp->count;
     }
     else if (kind == 2)
     {
       temp = Dumpop(addExp->Dump(), mulExp->Dump(), addOp->Dump());
-      count = count_all;
     }
     return temp;
   }
@@ -805,12 +784,10 @@ public:
     if (kind == 1)
     {
       temp = addexp->Dump();
-      count = addexp->count;
     }
     else if (kind == 2)
     {
       temp = Dumpop(relexp->Dump(), addexp->Dump(), relop->Dump());
-      count = count_all;
     }
     return temp;
   }
@@ -861,12 +838,10 @@ public:
     if (kind == 1)
     {
       temp = relexp->Dump();
-      count = relexp->count;
     }
     else if (kind == 2)
     {
       temp = Dumpop(eqexp->Dump(), relexp->Dump(), eqop->Dump());
-      count = count_all;
     }
     return temp;
   }
@@ -902,7 +877,6 @@ public:
     if (kind == 1)
     {
       temp = eqexp->Dump();
-      count = eqexp->count;
     }
     else if (kind == 2)
     {
@@ -912,7 +886,6 @@ public:
       string temp_eqexp = DumpUnaryOp(eqexp->Dump(), "ne");
 
       temp = Dumpop(temp_landexp, temp_eqexp, "and");
-      count = count_all;
     }
     return temp;
   }
@@ -945,7 +918,6 @@ public:
     if (kind == 1)
     {
       temp = landexp->Dump();
-      count = landexp->count;
     }
     else if (kind == 2)
     {
@@ -953,8 +925,6 @@ public:
 
       //按位或和逻辑或相同 将结果转换为逻辑
       temp = DumpUnaryOp(temp, "ne");
-
-      count = count_all;
     }
     return temp;
   }
