@@ -15,42 +15,6 @@
 #include <vector>
 
 using namespace std;
-extern string btype_str; // 声明时变量类型，以便所有声明的变量种类初始化
-extern FILE *IR;
-
-struct Symbol
-{
-  int kind;    // 0为const常量 1为符号变量
-  int val;     // 没有初始化时，默认为0
-  string type; //变量类型
-  int block_num; //记录符号所属于的block
-};
-struct Fun_sym //每个函数一个层次符号表
-{                                
-  int block_num;  //记录block的个数，用于命名防止名称重复
-  vector<map<string, Symbol>> vec_symbolmap;; //符号表
-  Fun_sym()
-  {
-    block_num = 0;
-  }
-};
-extern Fun_sym fun_symtab;  //用于查询上级符号表
-extern map<string, Symbol> symbolmap; //代表当前block符号表,便于操作
-
-Symbol Symbol_find(string str);
-
-void Visit(const koopa_raw_slice_t &slice);
-void Visit(const koopa_raw_function_t &func);
-void Visit(const koopa_raw_basic_block_t &bb);
-void Visit(const koopa_raw_value_t &value);
-void Visit(const koopa_raw_program_t &program);
-void AnalyzeIR(const char *str);
-
-string Dumpop(string temp1, string temp2, string op);
-string DumpUnaryOp(string temp1, string op);
-string DumpLoad(string lval,int block_num);
-string DumpStore(string temp1, string lval,int block_num);
-string DumpAlloc(string temp1,int block_num);
 
 class Baseast
 {
@@ -64,8 +28,60 @@ public:
   virtual int Calc() = 0;
 };
 
+
+extern string btype_str; // 声明时变量类型，以便所有声明的变量种类初始化
+extern FILE *IR;
+
+extern bool ret_flag;
+extern int While_cnt; //记录条件指令个数
+extern vector<int> vec_while;
+extern int IF_cnt;
+extern int Break_cnt;
+extern int Continue_cnt;
+
+
+struct Symbol
+{
+  int kind;      // 0为const常量 1为符号变量
+  int val;       // 没有初始化时，默认为0
+  string type;   //变量类型
+  int block_num; //记录符号所属于的block
+};
+
+struct Fun_sym //每个函数一个层次符号表
+{
+  int block_num; //记录block的个数，用于命名防止名称重复
+  vector<map<string, Symbol>> vec_symbolmap;
+  ; //符号表
+  Fun_sym()
+  {
+    block_num = 0;
+  }
+};
+extern Fun_sym fun_symtab;            //用于查询上级符号表
+extern map<string, Symbol> symbolmap; //代表当前block符号表,便于操作
+
+Symbol Symbol_find(string str);
+
+void Visit(const koopa_raw_slice_t &slice);
+void Visit(const koopa_raw_function_t &func);
+void Visit(const koopa_raw_basic_block_t &bb);
+void Visit(const koopa_raw_value_t &value);
+void Visit(const koopa_raw_program_t &program);
+void AnalyzeIR(const char *str);
+
+string Dumpop(string temp1, string temp2, string op);
+string DumpUnaryOp(string temp1, string op);
+string DumpLoad(string lval, int block_num);
+string DumpStore(string temp1, string lval, int block_num);
+string DumpAlloc(string temp1, int block_num);
+string DumpWhile(unique_ptr<Baseast> &exp, unique_ptr<Baseast> &body, int con_num);
+string DumpIfElse(unique_ptr<Baseast> &exp, unique_ptr<Baseast> &then_block, unique_ptr<Baseast> &else_block, int con_num);
+string DumpIf(unique_ptr<Baseast> &exp, unique_ptr<Baseast> &then_block, int con_num);
+
+
 // CompUnit    ::= FuncDef;
-class CompUnitast : public Baseast 
+class CompUnitast : public Baseast
 {
 public:
   // 用智能指针管理对象
@@ -153,10 +169,10 @@ public:
   }
   int Calc() override
   {
-    symbolmap.insert({ident, {0, constinitval->Calc(), btype_str,fun_symtab.block_num}});
-    #ifdef DEBUG
-        cout << "const:" << ident << " " << symbolmap[ident].val << endl;
-    #endif
+    symbolmap.insert({ident, {0, constinitval->Calc(), btype_str, fun_symtab.block_num}});
+#ifdef DEBUG
+    cout << "const:" << ident << " " << symbolmap[ident].val << endl;
+#endif
     if (kind == 2)
     {
       constdef->Calc();
@@ -225,15 +241,15 @@ public:
 
     //变量只需要表明类型以及和const区分，值由IR计算
 
-    symbolmap.insert({ident, {1, 0, btype_str,fun_symtab.block_num}});
+    symbolmap.insert({ident, {1, 0, btype_str, fun_symtab.block_num}});
 
     //  vardef 声明 @ident = alloc btype_str
-    DumpAlloc(ident,fun_symtab.block_num);
+    DumpAlloc(ident, fun_symtab.block_num);
 
     // 定义 store %count, @ident
     if (kind == 2 || kind == 4)
     {
-      temp = DumpStore(initval->Dump(), ident,fun_symtab.block_num);
+      temp = DumpStore(initval->Dump(), ident, fun_symtab.block_num);
       count = initval->count;
     }
     else
@@ -278,8 +294,8 @@ public:
   unique_ptr<Baseast> blockitem;
   string Dump() override
   {
-
     string temp;
+    if(ret_flag) return temp;
     if (blockitem->kind != 1) // blockitem 不为空 为空返回空  空{}不计入block_num
     {
       //建立新的符号表
@@ -290,8 +306,10 @@ public:
       temp = blockitem->Dump();
       count = blockitem->count;
 
-      symbolmap=fun_symtab.vec_symbolmap.back();
+      symbolmap = fun_symtab.vec_symbolmap.back();
       fun_symtab.vec_symbolmap.pop_back();
+
+      //if(ret_flag) ret_flag=false;
     }
     return temp;
   }
@@ -311,6 +329,7 @@ public:
   string Dump() override
   {
     string temp;
+    if(ret_flag) return temp;
     if (kind == 1) //为空返回值无用
     {
       return "";
@@ -319,12 +338,12 @@ public:
     {
 
       decl->Dump();
-      temp = blockitem->Dump();
+      blockitem->Dump();
     }
     else if (kind == 3)
     {
       stmt->Dump();
-      temp = blockitem->Dump();
+      blockitem->Dump();
     }
     return temp;
   }
@@ -347,8 +366,8 @@ public:
   int Calc() override //返回value
   {
 
-    Symbol lval_sym=Symbol_find(ident);
-    //Symbol lval_sym = lval_symtab->symbolmap[ident];
+    Symbol lval_sym = Symbol_find(ident);
+    // Symbol lval_sym = lval_symtab->symbolmap[ident];
     assert(!lval_sym.kind);
     return lval_sym.val;
   }
@@ -358,7 +377,7 @@ public:
 class PrimaryExpast : public Baseast // lval 分为常量和变量 常量直接换成number 变量需要load
 {
 public:
-  unique_ptr<Baseast> exp;  
+  unique_ptr<Baseast> exp;
   int number;
   unique_ptr<Baseast> lval;
 
@@ -377,8 +396,8 @@ public:
     }
     else if (kind == 3)
     {
-      string ident=lval->Dump();
-      //Symboltab *lval_symtab = Symtab_find(dump_symtab, ident);
+      string ident = lval->Dump();
+      // Symboltab *lval_symtab = Symtab_find(dump_symtab, ident);
       Symbol lval_sym = Symbol_find(ident);
       if (lval_sym.kind == 0)
       { // const常量
@@ -386,7 +405,7 @@ public:
       }
       else if (lval_sym.kind == 1)
       { // 变量
-        temp = DumpLoad(ident , lval_sym.block_num);
+        temp = DumpLoad(ident, lval_sym.block_num);
       }
 
       count = count_all;
@@ -420,7 +439,6 @@ public:
   unique_ptr<Baseast> func_type;
   string ident;
   unique_ptr<Baseast> block;
-
   string Dump() override
   {
     string temp;
@@ -455,42 +473,142 @@ public:
     return 0;
   }
 };
-// Stmt::= "return" Exp ";"|LVal "=" Exp ";"| ';'|Exp ";"|block
+
+// stmt : Exma | UExma
 class Stmtast : public Baseast
+{
+public:
+  unique_ptr<Baseast> exma;
+  unique_ptr<Baseast> uexma;
+  string Dump() override
+  {
+    string temp;
+    if(ret_flag) return temp;
+    if (kind == 1)
+    {
+      exma->Dump();
+    }
+    else if (kind == 2)
+    {
+      uexma->Dump();
+    }
+    return temp;
+  }
+
+  int Calc() override
+  {
+    return 0;
+  }
+};
+
+// UExma ->WHILE '(' Exp ')' UExma| IF '(' Exp ')' Stmt | IF '(' Exp ')' Exma ELSE UExma | 
+class UExmaast : public Baseast
+{
+public:
+  unique_ptr<Baseast> stmt;
+  unique_ptr<Baseast> exp;
+  unique_ptr<Baseast> uexma;
+  unique_ptr<Baseast> exma;
+  // int con_num; //记录此时if while的语句的次序
+  string Dump() override
+  {
+    string temp;
+    if(ret_flag) return temp;
+    if (kind == 1)
+    { // IF '(' Exp ')' Stmt    base_cnt //基本块划分IF WHILE 命令数
+       While_cnt++;
+      DumpWhile(exp, uexma, While_cnt);
+    }
+    else if (kind == 2)
+    { 
+      IF_cnt++;
+      DumpIf(exp, stmt, IF_cnt);
+    }
+    else if (kind == 3)
+    {
+      IF_cnt++;
+      DumpIfElse(exp, exma, uexma, IF_cnt);
+    }
+    return temp;
+  }
+  int Calc() override
+  {
+    return 0;
+  }
+};
+
+/*Exma          ::= return';'|"return" Exp ";"|LVal "=" Exp ";"| ';'|Exp ";"|Block
+ | IF '(' Exp ')' Exma ELSE Exma   | WHILE '(' Exp ')' Exma | BREAK ';' | CONTINUE ';'*/
+class Exmaast : public Baseast
 {
 public:
   unique_ptr<Baseast> exp;
   unique_ptr<Baseast> lval;
   unique_ptr<Baseast> block; //符号表迭代一层
+  unique_ptr<Baseast> exma_if;
+  unique_ptr<Baseast> exma_else;
+  unique_ptr<Baseast> exma_while;
   string Dump() override
   {
     string temp;
+    if(ret_flag) return temp;
     if (kind == 1)
+    { // return';'
+      fprintf(IR, "  ret\n\n");
+      ret_flag=true;
+    }
+    if (kind == 2) //"return" Exp ";"
     {
       fprintf(IR, "  ret %s\n\n", exp->Dump().c_str());
+      ret_flag=true;
       count = exp->count;
     }
-    else if (kind == 2) // lval 在exp中需要load
-    {                   // lval 在stmt需要 store
-      string ident=lval->Dump();
-      Symbol lval_sym=Symbol_find(ident);
+    else if (kind == 3) // LVal "=" Exp ";"
+    {
+      // lval 在stmt需要 store ,lval 在exp中需要load
+      string ident = lval->Dump();
+      Symbol lval_sym = Symbol_find(ident);
 
-      temp = DumpStore(exp->Dump(), ident,lval_sym.block_num);
+      DumpStore(exp->Dump(), ident, lval_sym.block_num);
       count = exp->count;
     }
-    else if (kind == 3)
+    else if (kind == 4) //';'
     {
       // 空
     }
-    else if (kind == 4)
+    else if (kind == 5) // exp ';'
     {
       exp->Dump();
       count = exp->count;
     }
-    else if (kind == 5)
-    { //符号表加深一层
+    else if (kind == 6) // Block
+    {                   //符号表加深一层
       temp = block->Dump();
       count = block->count;
+    }
+    else if (kind == 7) // IF '(' Exp ')' Exma ELSE Exma
+    { 
+      IF_cnt++;
+      DumpIfElse(exp,exma_if,exma_else,IF_cnt);
+    }
+    else if (kind == 8) // WHILE '(' Exp ')' Exma
+    {
+      While_cnt++;
+      DumpWhile(exp,exma_while,While_cnt);
+    }
+    else if (kind == 9) // BREAK ';'
+    {
+      Break_cnt++;
+      int temp_while_cnt=vec_while.back();
+      fprintf(IR,"  jump %%while_end_%d\n\n",temp_while_cnt);
+      fprintf(IR,"%%while_body_%d_%d:\n",temp_while_cnt,Break_cnt);
+    }
+    else if (kind == 10) // CONTINUE ';'
+    {
+      Continue_cnt++;
+      int temp_while_cnt=vec_while.back();
+      fprintf(IR,"  jump %%while_entry_%d\n\n",temp_while_cnt);
+      fprintf(IR,"%%while_body_%d_%d:\n",temp_while_cnt,Continue_cnt);
     }
     return temp;
   }

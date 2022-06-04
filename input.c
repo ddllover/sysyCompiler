@@ -1,8 +1,9 @@
 int main() {
-  int y;
-  {int x=1;
-  y=x;
-  return y;
+  int i = 0;
+  while (i < 10) {
+    i = 20;
+    continue;
+    i = i + 1;
   }
-  return x; 
+  return i;
 }

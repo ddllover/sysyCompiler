@@ -40,13 +40,18 @@ Hexadecimal   0[xX][0-9a-fA-F]+
 
 "int"           { return INT; }
 "return"        { return RETURN; }
-"<=" {return LREL;}
-">="    {return RREL;}
-"==" {return EQ;}
-"!=" {return NEQ;}
-"&&" {return AND;}
-"||" {return OR;}
-"const"  {return CONST;}
+"<="            {return LREL;}
+">="            {return RREL;}
+"=="            {return EQ;}
+"!="            {return NEQ;}
+"&&"            {return AND;}
+"||"            {return OR;}
+"const"         {return CONST;}
+"while"         {return WHILE;}
+"if"            {return IF;}
+"else"          {return ELSE;}
+"break"         {return BREAK;}
+"continue"      {return CONTINUE;}
 
 {Identifier}    { yylval.str_val = new string(yytext); return IDENT; }
 

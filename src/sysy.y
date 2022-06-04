@@ -35,6 +35,8 @@ using namespace std;
 %token INT RETURN LREL RREL EQ NEQ AND OR 
 //4.1
 %token CONST
+//6 7
+%token WHILE IF BREAK CONTINUE ELSE
 %token <str_val> IDENT
 %token <int_val> INT_CONST
 
@@ -45,8 +47,11 @@ using namespace std;
 %type <ast_val> Decl ConstDecl BType  ConstDef ConstInitVal BlockItem LVal  ConstExp
 //4.2
 %type <ast_val> VarDecl VarDef InitVal
+//6 7
+%type <ast_val>  Exma UExma
 %type <int_val> Number
 
+%right ELSE
 %%
 //CompUnit    ::= FuncDef;
 CompUnit: 
@@ -61,6 +66,7 @@ CompUnit:
 FuncDef: 
   FuncType IDENT '(' ')' Block {
     auto ast = new FuncDefast();
+    ast->kind=1;
     ast->func_type = unique_ptr<Baseast>($1);
     ast->ident = *unique_ptr<string>($2);
     ast->block = unique_ptr<Baseast>($5);
@@ -273,40 +279,120 @@ PrimaryExp:
   }
 ;
 
-
-//Stmt          ::= "return" Exp ";"|LVal "=" Exp ";"| [Exp] ";"|block
-Stmt: 
-  RETURN Exp ';' {
+//stmt : Exma | UExma
+Stmt:
+  Exma{
     auto ast=new Stmtast();
     ast->kind=1;
+    ast->exma=unique_ptr<Baseast>($1);
+    $$=ast;
+   }
+  | UExma
+  { 
+    auto ast=new Stmtast();
+    ast->kind=2;
+    ast->uexma=unique_ptr<Baseast>($1);
+    $$=ast;
+  };
+
+//UExma ->  WHILE '(' Exp ')' UExma|IF '(' Exp ')' Stmt | IF '(' Exp ')' Exma ELSE UExma |
+
+UExma:
+  WHILE '(' Exp ')' UExma
+  {
+    auto ast=new UExmaast();
+    ast->kind=1;
+    ast->exp=unique_ptr<Baseast>($3);
+    ast->uexma=unique_ptr<Baseast>($5);
+    $$=ast;
+  }
+  | IF '(' Exp ')' Stmt
+  { 
+    auto ast=new UExmaast();
+    ast->kind=2;
+    ast->exp=unique_ptr<Baseast>($3);
+    ast->stmt=unique_ptr<Baseast>($5);
+    $$=ast;
+  }
+  | IF '(' Exp ')' Exma ELSE UExma
+  {
+    auto ast=new UExmaast();
+    ast->kind=3;
+    ast->exp=unique_ptr<Baseast>($3);
+    ast->exma=unique_ptr<Baseast>($5);
+    ast->uexma=unique_ptr<Baseast>($7);
+    $$=ast;
+  }
+  ;
+
+//Exma          ::= return';'|"return" Exp ";"|LVal "=" Exp ";"| ';'|Exp ";"|block
+//  | IF '(' Exp ')' Exma ELSE Exma   | WHILE '(' Exp ')' Exma | BREAK ';' | CONTINUE ';'
+Exma: 
+  RETURN ';'{
+    auto ast=new Exmaast();
+    ast->kind=1;
+    $$=ast;
+  }
+  |RETURN Exp ';' {
+    auto ast=new Exmaast();
+    ast->kind=2;
     ast->exp =unique_ptr<Baseast>($2);
     $$ = ast;
   }
   | LVal '=' Exp ';'{
-    auto ast=new Stmtast();
-    ast->kind=2;
+    auto ast=new Exmaast();
+    ast->kind=3;
     ast->lval=unique_ptr<Baseast>($1);
     ast->exp=unique_ptr<Baseast>($3);
     $$=ast;
   }
   | ';'
   {
-    auto ast=new Stmtast();
-    ast->kind=3;
+    auto ast=new Exmaast();
+    ast->kind=4;
     $$=ast;
   }
   | Exp ';'
   {
-    auto ast=new Stmtast();
-    ast->kind=4;
+    auto ast=new Exmaast();
+    ast->kind=5;
     ast->exp=unique_ptr<Baseast>($1);
     $$=ast;
   }
   |Block
   {
-    auto ast=new Stmtast();
-    ast->kind=5;
+    auto ast=new Exmaast();
+    ast->kind=6;
     ast->block=unique_ptr<Baseast>($1);
+    $$=ast;
+  }
+  | IF '(' Exp ')' Exma ELSE Exma
+  {
+    auto ast=new Exmaast();
+    ast->kind=7;
+    ast->exp=unique_ptr<Baseast>($3);
+    ast->exma_if=unique_ptr<Baseast>($5);
+    ast->exma_else=unique_ptr<Baseast>($7);
+    $$=ast;
+  }
+  | WHILE '(' Exp ')' Exma
+  {
+    auto ast=new Exmaast();
+    ast->kind=8;
+    ast->exp=unique_ptr<Baseast>($3);
+    ast->exma_while=unique_ptr<Baseast>($5);
+    $$=ast;
+  }
+  | BREAK ';'
+  {
+    auto ast=new Exmaast();
+    ast->kind=9;
+    $$=ast;
+  }
+  | CONTINUE ';'
+  {
+    auto ast=new Exmaast();
+    ast->kind=10;
     $$=ast;
   }
   ;

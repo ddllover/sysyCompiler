@@ -27,6 +27,7 @@ int main(int argc, const char *argv[])
   auto ret = yyparse(ast);
   assert(!ret);
   // 输出解析得到的 ast, 其实就是个字符串
+  //
   if (strcmp("-koopa", mode) == 0)
   {
     IR=fopen(output,"w");
