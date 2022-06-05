@@ -1,29 +1,142 @@
-fun @main(): i32 {
+decl @getint(): i32
+decl @getch(): i32
+decl @getarray(*i32): i32
+decl @putint(i32)
+decl @putch(i32)
+decl @putarray(i32, *i32)
+decl @starttime()
+decl @stoptime()
+
+fun @add(%a:i32 , %b:i32):i32 {
 %entry:
-  @i_1 = alloc i32
-  store 0, @i_1
+  @a_0= alloc i32
+  store %a, @a_0
 
-  jump %while_entry_1
+  @b_0= alloc i32
+  store %b, @b_0
 
-%while_entry_1:
-  %0 = load @i_1
-  %1 = lt %0, 10
-  br %1, %while_body_1, %while_end_1
-
-%while_body_1:
-  store 20, @i_1
-
-  jump %whiel_entry_1
-
-%while_body_1_1:
-  %2 = load @i_1
-  %3 = add %2, 1
-  store %3, @i_1
-
-  jump %while_entry_1
-
-%while_end_1:
-  %4 = load @i_1
-  ret %4
+  %0 = load @a_0
+  %1 = load @b_0
+  %2 = add %0, %1
+  ret %2
 
 }
+
+fun @sub(%a:i32 , %b:i32):i32 {
+%entry:
+  @a_0= alloc i32
+  store %a, @a_0
+
+  @b_0= alloc i32
+  store %b, @b_0
+
+  %0 = load @a_0
+  %1 = load @b_0
+  %2 = sub %0, %1
+  ret %2
+
+}
+
+fun @mul(%a:i32 , %b:i32):i32 {
+%entry:
+  @a_0= alloc i32
+  store %a, @a_0
+
+  @b_0= alloc i32
+  store %b, @b_0
+
+  %0 = load @a_0
+  %1 = load @b_0
+  %2 = mul %0, %1
+  ret %2
+
+}
+
+fun @div(%a:i32 , %b:i32):i32 {
+%entry:
+  @a_0= alloc i32
+  store %a, @a_0
+
+  @b_0= alloc i32
+  store %b, @b_0
+
+  %0 = load @a_0
+  %1 = load @b_0
+  %2 = div %0, %1
+  ret %2
+
+}
+
+fun @main():i32 {
+%entry:
+  @x_1= alloc i32
+  %0 = call @sub(1,2)
+  %1 = call @div(4,5)
+  %2 = call @mul(3,%1)
+  %3 = call @add(%0,%2)
+  store %3, @x_1
+
+  @y_1= alloc i32
+  @result_1 = alloc i32
+  store 0,@result_1
+  %4 = ge 0, 1
+  br %4, %then_1, %if_end_1
+
+%then_1:
+  %5 = ne 0, 0
+ store %5,@result_1
+  jump %if_end_1
+
+%if_end_1:
+  %6= load @result_1
+  @result_2 = alloc i32
+  store 0,@result_2
+  @result_3 = alloc i32
+  store 1,@result_3
+  %7 = ne 0, 0
+  br %7, %then_3, %if_end_3
+
+%then_3:
+  %8 = ne 0, 0
+ store %8,@result_3
+  jump %if_end_3
+
+%if_end_3:
+  %9= load @result_3
+  %10 = ge 0, %9
+  br %10, %then_2, %if_end_2
+
+%then_2:
+  @result_4 = alloc i32
+  store 0,@result_4
+  %11 = load @x_1
+  %12 = ge 0, %11
+  br %12, %then_4, %if_end_4
+
+%then_4:
+  %13 = call @add(1,2)
+  %14 = gt %13, 10
+  %15 = ne 0, %14
+ store %15,@result_4
+  jump %if_end_4
+
+%if_end_4:
+  %16= load @result_4
+  %17 = call @div(%16,5)
+  %18 = call @mul(3,%17)
+  %19 = ne 0, %18
+ store %19,@result_2
+  jump %if_end_2
+
+%if_end_2:
+  %20= load @result_2
+  %21 = call @add(%6,%20)
+  store %21, @y_1
+
+  %22 = load @x_1
+  %23 = load @y_1
+  %24 = add %22, %23
+  ret %24
+
+}
+

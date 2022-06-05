@@ -20,14 +20,13 @@ class Baseast
 {
 public:
   virtual ~Baseast() = default;
-  static int count_all;
-  //int count; //代表该节点结果的代数
-  int kind;  //字节点序号
+  static int Count_Order;
+  // int count; //代表该节点结果的代数
+  int kind; //字节点序号
 
   virtual string Dump() = 0;
   virtual int Calc() = 0;
 };
-
 
 extern string btype_str; // 声明时变量类型，以便所有声明的变量种类初始化
 extern FILE *IR;
@@ -39,26 +38,41 @@ extern int IF_cnt;
 extern int Break_cnt;
 extern int Continue_cnt;
 
+void Fun_init();
 
 struct Symbol
 {
-  int kind;      // 0为const常量 1为符号变量
+  int kind;      // 0为局部const常量 1为局部符号变量 2为全局const 3为全局变量
   int val;       // 没有初始化时，默认为0
   string type;   //变量类型
   int block_num; //记录符号所属于的block
 };
 
-struct Fun_sym //每个函数一个层次符号表
+struct Fun_sym //每个函数符号表
 {
-  int block_num; //记录block的个数，用于命名防止名称重复
-  vector<map<string, Symbol>> vec_symbolmap;
-  ; //符号表
+  int block_num;                             //记录当前block的序号，
+  vector<map<string, Symbol>> vec_symbolmap; //函数内每个块的符号表
+  int block_cnt;                             // 记录所有block的块的个数，用于命名防止名称重复
+  int type;                                  //函数类型1为void  2为int
   Fun_sym()
   {
     block_num = 0;
+    block_cnt = 0;
+    type=0;
+  }
+  void clear()
+  {
+    block_num = 0;
+    block_cnt = 0;
+    type=0;
+    vec_symbolmap.clear();
   }
 };
-extern Fun_sym fun_symtab;            //用于查询上级符号表
+extern map<string, int> all_fun_symtab; //所有函数的符号表
+extern map<string, Symbol> glo_symbolmap;   //全局变量
+extern bool global;
+
+extern Fun_sym fun_symtab;            //当前函数的符号表
 extern map<string, Symbol> symbolmap; //代表当前block符号表,便于操作
 
 Symbol Symbol_find(string str);
@@ -70,6 +84,7 @@ void Visit(const koopa_raw_value_t &value);
 void Visit(const koopa_raw_program_t &program);
 void AnalyzeIR(const char *str);
 
+void Decl();
 string Dumpop(string temp1, string temp2, string op);
 string DumpUnaryOp(string temp1, string op);
 string DumpLoad(string lval, int block_num);
@@ -78,22 +93,76 @@ string DumpAlloc(string temp1, int block_num);
 string DumpWhile(unique_ptr<Baseast> &exp, unique_ptr<Baseast> &body, int con_num);
 string DumpIfElse(unique_ptr<Baseast> &exp, unique_ptr<Baseast> &then_block, unique_ptr<Baseast> &else_block, int con_num);
 string DumpIf(unique_ptr<Baseast> &exp, unique_ptr<Baseast> &then_block, int con_num);
+string DumpCall(string ident, string param);
 
+class AST:public Baseast{
+  public:
+  unique_ptr<Baseast> compunit;
+  string Dump() override{
+    return compunit->Dump();
+  }
+  int Calc() override{
+    return 0;
+  }
+};
 
-// CompUnit    ::= FuncDef;
+////CompUnit:Unit|CompUnit Unit;
 class CompUnitast : public Baseast
 {
 public:
   // 用智能指针管理对象
-  unique_ptr<Baseast> func_def;
-
+  unique_ptr<Baseast> compunit;
+  unique_ptr<Baseast> unit;
   string Dump() override // override确保虚函数覆盖基类的虚函数
   {
     string temp;
-    func_def->Dump();
+    if (kind == 1)
+    {
+      unit->Dump();
+    }
+    else if (kind == 2)
+    {
+      compunit->Dump();
+      unit->Dump();
+    }
     return temp;
   }
 
+  int Calc() override
+  {
+    return 0;
+  }
+};
+
+// Unit :FuncDef|VarDecl|ConstDecl;  //全局变量
+class Unitast : public Baseast
+{
+public:
+  unique_ptr<Baseast> funcdef;
+  unique_ptr<Baseast> vardecl;
+  unique_ptr<Baseast> constdecl;
+  string Dump() override
+  {
+    string temp;
+    if (kind == 1)
+    {
+      // all_symtab.vec_fun_symtab
+      funcdef->Dump();
+    }
+    else if (kind == 2)
+    {
+      global = true;
+      vardecl->Dump();
+      global = false;
+    }
+    else if (kind == 3)
+    {
+      global = true;
+      constdecl->Calc();
+      global = false;
+    }
+    return temp;
+  }
   int Calc() override
   {
     return 0;
@@ -169,9 +238,17 @@ public:
   }
   int Calc() override
   {
-    symbolmap.insert({ident, {0, constinitval->Calc(), btype_str, fun_symtab.block_num}});
+    int val=constinitval->Calc();
+    if (!global)
+    {
+      symbolmap.insert({ident, {0,val , btype_str, fun_symtab.block_num}});
+    }
+    else
+    {
+      glo_symbolmap.insert({ident, {2, val, btype_str, -1}});
+    }
 #ifdef DEBUG
-    cout << "const:" << ident << " " << symbolmap[ident].val << endl;
+    cout << "const:" << ident << " " <<val << endl;
 #endif
     if (kind == 2)
     {
@@ -239,26 +316,51 @@ public:
   {
     string temp;
 
-    //变量只需要表明类型以及和const区分，值由IR计算
-
-    symbolmap.insert({ident, {1, 0, btype_str, fun_symtab.block_num}});
-
-    //  vardef 声明 @ident = alloc btype_str
-    DumpAlloc(ident, fun_symtab.block_num);
-
-    // 定义 store %count, @ident
-    if (kind == 2 || kind == 4)
+    if (!global)
     {
-      temp = DumpStore(initval->Dump(), ident, fun_symtab.block_num);
+      //局部变量只需要表明类型以及和const区分，值由IR计算
+  
+      symbolmap.insert({ident, {1, 0, btype_str, fun_symtab.block_num}});
+
+      //  vardef 声明 @ident = alloc btype_str
+      DumpAlloc(ident, fun_symtab.block_num);
+
+      // 定义 store %count, @ident
+      if (kind == 2 || kind == 4)
+      {
+        DumpStore(initval->Dump(), ident, fun_symtab.block_num);
+      }
+      else
+      {
+        fprintf(IR, "\n"); //每个变量划分一个块便于debug
+      }
+
+      if (kind == 3 || kind == 4)
+      {
+        vardef->Dump();
+      }
     }
     else
     {
-      fprintf(IR, "\n"); //每个变量划分一个块便于debug
-    }
-
-    if (kind == 3 || kind == 4)
-    {
-      temp = vardef->Dump();
+      int val = 0; //全局变量必须定义初始值
+      if (kind == 2 || kind == 4)
+      {
+        val = initval->Calc();
+      }
+      glo_symbolmap.insert({ident, {3, val, btype_str, -1}});
+      fprintf(IR, "global @%s = alloc %s, ", ident.c_str(), btype_str.c_str());
+      if (val == 0)
+      {
+        fprintf(IR, "zeroinit\n");
+      }
+      else
+      {
+        fprintf(IR, "%d\n", val);
+      }
+      if (kind == 3 || kind == 4)
+      {
+        vardef->Dump();
+      }
     }
     return temp;
   }
@@ -280,7 +382,7 @@ public:
   }
   int Calc() override
   {
-    return 0;
+    return exp->Calc();
   }
 };
 
@@ -292,20 +394,23 @@ public:
   string Dump() override
   {
     string temp;
-    if(ret_flag) return temp;
+    if (ret_flag)
+      return temp;
     if (blockitem->kind != 1) // blockitem 不为空 为空返回空  空{}不计入block_num
     {
       //建立新的符号表
       fun_symtab.vec_symbolmap.push_back(symbolmap);
-      fun_symtab.block_num++;
+      int fun_block_num = fun_symtab.block_num;
+      fun_symtab.block_cnt++;
+      fun_symtab.block_num = fun_symtab.block_cnt;
       symbolmap.clear();
 
       temp = blockitem->Dump();
 
       symbolmap = fun_symtab.vec_symbolmap.back();
       fun_symtab.vec_symbolmap.pop_back();
-
-      //if(ret_flag) ret_flag=false;
+      fun_symtab.block_num = fun_block_num;
+      // if(ret_flag) ret_flag=false;
     }
     return temp;
   }
@@ -325,7 +430,8 @@ public:
   string Dump() override
   {
     string temp;
-    if(ret_flag) return temp;
+    if (ret_flag)
+      return temp;
     if (kind == 1) //为空返回值无用
     {
       return "";
@@ -364,7 +470,7 @@ public:
 
     Symbol lval_sym = Symbol_find(ident);
     // Symbol lval_sym = lval_symtab->symbolmap[ident];
-    assert(!lval_sym.kind);
+    // assert(!lval_sym.kind);  全局变量的初始值可以用全局变量定义
     return lval_sym.val;
   }
 };
@@ -393,11 +499,11 @@ public:
       string ident = lval->Dump();
       // Symboltab *lval_symtab = Symtab_find(dump_symtab, ident);
       Symbol lval_sym = Symbol_find(ident);
-      if (lval_sym.kind == 0)
+      if (lval_sym.kind == 0||lval_sym.kind==2)
       { // const常量
         temp = to_string(lval_sym.val);
       }
-      else if (lval_sym.kind == 1)
+      else if (lval_sym.kind == 1||lval_sym.kind==3)
       { // 变量
         temp = DumpLoad(ident, lval_sym.block_num);
       }
@@ -424,20 +530,37 @@ public:
   }
 };
 
-// FuncDef 也是 Baseast
-class FuncDefast : public Baseast // FuncDef     ::= FuncType IDENT "(" ")" Block;
+// FuncDef     ::= Void IDENT "(" FuncArgs ")" Block|Btpye IDENT "(" FuncArgs")" Block ;
+class FuncDefast : public Baseast
 {
 public:
-  unique_ptr<Baseast> func_type;
+  unique_ptr<Baseast> btype;
   string ident;
+  unique_ptr<Baseast> funcargs;
   unique_ptr<Baseast> block;
   string Dump() override
   {
     string temp;
+    Fun_init();
+    fprintf(IR, "fun @%s(", ident.c_str());
+    funcargs->Dump();
+    if (kind == 1)
+    { // void 类型单独输出
+      fprintf(IR, ") {\n%%entry:\n");
+      fun_symtab.type = 1;
+    }
+    else if (kind == 2)
+    { //): %s{\n%%entry:\n
+      fprintf(IR, "):%s {\n%%entry:\n", btype->Dump().c_str());
+      fun_symtab.type = 2;
+    }
+    all_fun_symtab.insert({ident, fun_symtab.type});
+    funcargs->Dump();
+    block->Dump();
+    if(!ret_flag) fprintf(IR,"  ret\n");
+    fprintf(IR, "}\n\n");
 
-    fprintf(IR, "fun @%s(): %s{\n%%entry:\n", ident.c_str(), func_type->Dump().c_str());
-    temp = block->Dump();
-    fprintf(IR, "}\n");
+    
 
     return temp;
   }
@@ -448,11 +571,100 @@ public:
   }
 };
 
+// FuncArgs :|FuncFParams
+class FuncArgsast : public Baseast
+{
+public:
+  unique_ptr<Baseast> funcfparams;
+  string Dump() override
+  {
+    string temp;
+    if (kind == 1)
+    {
+    }
+    else if (kind == 2)
+    {
+      funcfparams->Dump();
+    }
+    return temp;
+  }
+  int Calc() override
+  {
+    return 0;
+  }
+};
+
+// FuncFParams : FuncFParam| FuncFParam ',' FuncFParams;
+class FuncFParamsast : public Baseast
+{
+public:
+  unique_ptr<Baseast> funcfparam;
+  unique_ptr<Baseast> funcfparams;
+  int Dump_cnt = 1;
+  string Dump() override
+  {
+    string temp;
+    if (kind == 1)
+    {
+      funcfparam->Dump();
+    }
+    else
+    {
+      funcfparam->Dump();
+      if (Dump_cnt == 1)
+      {
+        fprintf(IR, " , ");
+        Dump_cnt = 2;
+      }
+      else if(Dump_cnt==2)
+      {
+        Dump_cnt = 1;
+      }
+      funcfparams->Dump();
+    }
+    return temp;
+  }
+  int Calc() override
+  {
+    return 0;
+  }
+};
+
+// FuncFParam  :BType IDENT;
+class FuncFParamast : public Baseast
+{
+public:
+  unique_ptr<Baseast> btype;
+  string ident;
+  int Dump_cnt = 1;
+  string Dump() override
+  {
+    string temp;
+    if (Dump_cnt == 1)
+    {
+      fprintf(IR, "%%%s:%s", ident.c_str(), btype->Dump().c_str());
+      Dump_cnt=2;
+    }
+    else if (Dump_cnt == 2)
+    {
+      symbolmap.insert({ident,{1,0,btype->Dump(),fun_symtab.block_num}});
+      DumpAlloc(ident, fun_symtab.block_num);
+      DumpStore("%" + ident, ident, fun_symtab.block_num);
+      Dump_cnt = 1;
+    }
+    return temp;
+  }
+  int Calc() override
+  {
+    return 0;
+  }
+};
+
 class FuncTypeast : public Baseast // FuncType    ::= "int";
 {
 public:
   string str;
-
+  unique_ptr<Baseast> btype;
   string Dump() override
   {
     char temp[MAXCHARS] = {0};
@@ -474,7 +686,8 @@ public:
   string Dump() override
   {
     string temp;
-    if(ret_flag) return temp;
+    if (ret_flag)
+      return temp;
     if (kind == 1)
     {
       exma->Dump();
@@ -492,7 +705,7 @@ public:
   }
 };
 
-// UExma ->WHILE '(' Exp ')' UExma| IF '(' Exp ')' Stmt | IF '(' Exp ')' Exma ELSE UExma | 
+// UExma ->WHILE '(' Exp ')' UExma| IF '(' Exp ')' Stmt | IF '(' Exp ')' Exma ELSE UExma |
 class UExmaast : public Baseast
 {
 public:
@@ -504,14 +717,15 @@ public:
   string Dump() override
   {
     string temp;
-    if(ret_flag) return temp;
+    if (ret_flag)
+      return temp;
     if (kind == 1)
     { // IF '(' Exp ')' Stmt    base_cnt //基本块划分IF WHILE 命令数
-       While_cnt++;
+      While_cnt++;
       DumpWhile(exp, uexma, While_cnt);
     }
     else if (kind == 2)
-    { 
+    {
       IF_cnt++;
       DumpIf(exp, stmt, IF_cnt);
     }
@@ -542,16 +756,17 @@ public:
   string Dump() override
   {
     string temp;
-    if(ret_flag) return temp;
+    if (ret_flag)
+      return temp;
     if (kind == 1)
     { // return';'
       fprintf(IR, "  ret\n\n");
-      ret_flag=true;
+      ret_flag = true;
     }
     if (kind == 2) //"return" Exp ";"
     {
       fprintf(IR, "  ret %s\n\n", exp->Dump().c_str());
-      ret_flag=true;
+      ret_flag = true;
     }
     else if (kind == 3) // LVal "=" Exp ";"
     {
@@ -574,28 +789,28 @@ public:
       temp = block->Dump();
     }
     else if (kind == 7) // IF '(' Exp ')' Exma ELSE Exma
-    { 
+    {
       IF_cnt++;
-      DumpIfElse(exp,exma_if,exma_else,IF_cnt);
+      DumpIfElse(exp, exma_if, exma_else, IF_cnt);
     }
     else if (kind == 8) // WHILE '(' Exp ')' Exma
     {
       While_cnt++;
-      DumpWhile(exp,exma_while,While_cnt);
+      DumpWhile(exp, exma_while, While_cnt);
     }
     else if (kind == 9) // BREAK ';'
     {
       Break_cnt++;
-      int temp_while_cnt=vec_while.back();
-      fprintf(IR,"  jump %%while_end_%d\n\n",temp_while_cnt);
-      fprintf(IR,"%%while_body_%d_%d:\n",temp_while_cnt,Break_cnt);
+      int temp_while_cnt = vec_while.back();
+      fprintf(IR, "  jump %%while_end_%d\n\n", temp_while_cnt);
+      fprintf(IR, "%%while_body_%d_%d:\n", temp_while_cnt, Break_cnt);
     }
     else if (kind == 10) // CONTINUE ';'
     {
       Continue_cnt++;
-      int temp_while_cnt=vec_while.back();
-      fprintf(IR,"  jump %%while_entry_%d\n\n",temp_while_cnt);
-      fprintf(IR,"%%while_body_%d_%d:\n",temp_while_cnt,Continue_cnt);
+      int temp_while_cnt = vec_while.back();
+      fprintf(IR, "  jump %%while_entry_%d\n\n", temp_while_cnt);
+      fprintf(IR, "%%while_body_%d_%d:\n", temp_while_cnt, Continue_cnt);
     }
     return temp;
   }
@@ -622,13 +837,15 @@ public:
   }
 };
 
-class UnaryExpast : public Baseast // UnaryExp    ::= PrimaryExp | UnaryOp(+ - !) UnaryExp;
+// UnaryExp    : PrmaryExp|UnaryOp UnaryExp | IDENT '(' ')'|IDENT '(' FuncRParams')';
+class UnaryExpast : public Baseast
 {
 public:
   unique_ptr<Baseast> primary;
   unique_ptr<Baseast> unaryop;
   unique_ptr<Baseast> unaryexp;
-
+  string ident;
+  unique_ptr<Baseast> funcrparams;
   string Dump() override
   {
     string temp;
@@ -646,6 +863,15 @@ public:
       {
         temp = DumpUnaryOp(unaryexp->Dump(), unaryop->Dump());
       }
+    }
+    else if (kind == 3)
+    {
+      temp = DumpCall(ident, "");
+      // fprintf(IR,"%%%d call @%s()",ident)
+    }
+    else if (kind == 4)
+    {
+      temp = DumpCall(ident, funcrparams->Dump());
     }
     return temp;
   }
@@ -674,6 +900,31 @@ public:
       }
     }
     return temp;
+  }
+};
+
+// FuncRParams:Exp|Exp ',' FuncRParams
+class FuncRParamsast : public Baseast
+{
+public:
+  unique_ptr<Baseast> funcrparams;
+  unique_ptr<Baseast> exp;
+  string Dump() override
+  {
+    string temp;
+    if (kind == 1)
+    {
+      temp = exp->Dump();
+    }
+    else if (kind == 2)
+    {
+      temp = exp->Dump() + "," + funcrparams->Dump();
+    }
+    return temp;
+  }
+  int Calc() override
+  {
+    return 0;
   }
 };
 
@@ -880,12 +1131,22 @@ public:
     }
     else if (kind == 2)
     {
-      // 先用ne 将数值转换为逻辑
-      string temp_landexp = DumpUnaryOp(landexp->Dump(), "ne");
+      // 短路求值
+      IF_cnt++;
+      int con_num=IF_cnt;
+      fprintf(IR,"  @result_%d = alloc i32\n",con_num);
+      fprintf(IR,"  store 0,@result_%d\n",con_num);
+      temp = DumpUnaryOp(landexp->Dump(), "ne");
+      fprintf(IR, "  br %s, %%then_%d, %%if_end_%d\n\n", temp.c_str(), con_num,con_num);
+      fprintf(IR, "%%then_%d:\n", con_num);
+      temp=DumpUnaryOp(eqexp->Dump(),"ne");
+      fprintf(IR," store %s,@result_%d\n",temp.c_str(),con_num);
+      fprintf(IR, "  jump %%if_end_%d\n\n", con_num);
 
-      string temp_eqexp = DumpUnaryOp(eqexp->Dump(), "ne");
-
-      temp = Dumpop(temp_landexp, temp_eqexp, "and");
+      fprintf(IR, "%%if_end_%d:\n", con_num);
+      Count_Order++;
+      temp="%"+to_string(Count_Order);
+      fprintf(IR,"  %s= load @result_%d\n",temp.c_str(),con_num);
     }
     return temp;
   }
@@ -921,10 +1182,22 @@ public:
     }
     else if (kind == 2)
     {
-      temp = Dumpop(lorexp->Dump(), landexp->Dump(), "or");
+      //短路求值
+      IF_cnt++;
+      int con_num=IF_cnt;
+      fprintf(IR,"  @result_%d = alloc i32\n",con_num);
+      fprintf(IR,"  store 1,@result_%d\n",con_num);
+      temp = DumpUnaryOp(lorexp->Dump(), "ge");
+      fprintf(IR, "  br %s, %%then_%d, %%if_end_%d\n\n", temp.c_str(), con_num,con_num);
+      fprintf(IR, "%%then_%d:\n",con_num);
+      temp=DumpUnaryOp(landexp->Dump(),"ne");
+      fprintf(IR," store %s,@result_%d\n",temp.c_str(),con_num);
+      fprintf(IR, "  jump %%if_end_%d\n\n", con_num);
 
-      //按位或和逻辑或相同 将结果转换为逻辑
-      temp = DumpUnaryOp(temp, "ne");
+      fprintf(IR, "%%if_end_%d:\n", con_num);
+      Count_Order++;
+      temp="%"+to_string(Count_Order);
+      fprintf(IR,"  %s= load @result_%d\n",temp.c_str(),con_num);
     }
     return temp;
   }

@@ -35,6 +35,7 @@ int main(int argc, const char *argv[])
     //计算const
     //ast->Calc();
     //生成IR
+    Decl();
     ast->Dump();
     fclose(IR);
     

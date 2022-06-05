@@ -37,11 +37,13 @@ using namespace std;
 %token CONST
 //6 7
 %token WHILE IF BREAK CONTINUE ELSE
+//8
+%token VOID
 %token <str_val> IDENT
 %token <int_val> INT_CONST
 
 // 非终结符的类型定义
-%type <ast_val> FuncDef FuncType Block Stmt Exp PrimaryExp UnaryExp UnaryOp AddExp MulExp AddOp MulOp
+%type <ast_val> FuncDef Block Stmt Exp PrimaryExp UnaryExp UnaryOp AddExp MulExp AddOp MulOp
 %type <ast_val> RelExp EqExp LAndExp LOrExp Relop Eqop 
 //4.1
 %type <ast_val> Decl ConstDecl BType  ConstDef ConstInitVal BlockItem LVal  ConstExp
@@ -50,37 +52,119 @@ using namespace std;
 //6 7
 %type <ast_val>  Exma UExma
 %type <int_val> Number
+//8
+%type <ast_val> CompUnit Unit FuncArgs FuncFParams FuncFParam FuncRParams
 
 %right ELSE
 %%
-//CompUnit    ::= FuncDef;
+//CompUnit:Unit| FuncDef;
+AST:
+  CompUnit{
+    auto final_ast=make_unique<AST>();
+    final_ast->compunit=unique_ptr<Baseast>($1);
+    ast=move(final_ast); 
+  };
+
 CompUnit: 
-  FuncDef {
-    auto comp_unit = make_unique<CompUnitast>();
-    comp_unit->func_def = unique_ptr<Baseast>($1);
-    ast = move(comp_unit);   //对应mian函数里面ast
+  Unit
+   {
+    auto ast = new CompUnitast();
+    ast->kind=1;
+    ast->unit = unique_ptr<Baseast>($1);  
+    $$=ast;
+  }
+  | CompUnit Unit{
+    auto ast = new CompUnitast();
+    ast->kind=2;
+    ast->compunit=unique_ptr<Baseast>($1); 
+    ast->unit = unique_ptr<Baseast>($2); 
+    $$=ast;
+  };
+
+//Unit :FuncDef|VarDecl|ConstDecl;  //全局变量
+Unit:
+  FuncDef 
+  {
+    auto ast=new Unitast();;
+    ast->kind=1;
+    ast->funcdef=unique_ptr<Baseast> ($1);
+    $$=ast;
+  }
+  |VarDecl {
+    auto ast=new Unitast();
+    ast->kind=2;
+    ast->vardecl=unique_ptr<Baseast>($1);
+    $$=ast;
+  }
+  |ConstDecl{
+    auto ast=new Unitast();
+    ast->kind=3;
+    ast->constdecl=unique_ptr<Baseast>($1);
+    $$=ast;
   }
   ;
 
-//FuncDef     ::= FuncType IDENT "(" ")" Block;
+
+//FuncDef     ::= Void IDENT "(" FuncArgs ")" Block|Btpye IDENT "(" FuncArgs")" Block ;
 FuncDef: 
-  FuncType IDENT '(' ')' Block {
+  VOID IDENT '(' FuncArgs ')' Block {
     auto ast = new FuncDefast();
     ast->kind=1;
-    ast->func_type = unique_ptr<Baseast>($1);
+    
     ast->ident = *unique_ptr<string>($2);
-    ast->block = unique_ptr<Baseast>($5);
+    ast->funcargs=unique_ptr<Baseast>($4);
+    ast->block = unique_ptr<Baseast>($6);
+    $$ = ast;
+  }
+  |BType IDENT '('FuncArgs ')' Block{
+    auto ast = new FuncDefast();
+    ast->kind=2;
+    ast->btype = unique_ptr<Baseast>($1);
+    ast->ident = *unique_ptr<string>($2);
+    ast->funcargs=unique_ptr<Baseast>($4);
+    ast->block = unique_ptr<Baseast>($6);
     $$ = ast;
   }
   ;
-//FuncType    ::= "int";
-FuncType: 
-  INT {
-    auto ast =new FuncTypeast();
-    ast->str="int";
-    $$ = ast;
+//FuncArgs :|FuncFParams
+FuncArgs:
+  {
+    auto ast=new FuncArgsast();
+    ast->kind=1;
+    $$=ast;
   }
-  ;
+  |FuncFParams{
+    auto ast=new FuncArgsast();
+    ast->kind=2;
+    ast->funcfparams=unique_ptr<Baseast>($1);
+    $$=ast;
+  }
+//FuncFParams : FuncFParam| FuncFParam ',' FuncFParams;
+FuncFParams : 
+  FuncFParam
+  {
+    auto ast=new FuncFParamsast();
+    ast->kind=1;
+    ast->funcfparam=unique_ptr<Baseast>($1);
+    $$=ast;
+  }
+  | FuncFParam ',' FuncFParams{
+    auto ast=new FuncFParamsast();
+    ast->kind=2;
+    ast->funcfparam=unique_ptr<Baseast>($1);
+    ast->funcfparams=unique_ptr<Baseast>($3);
+    $$=ast;
+  };
+//FuncFParam  :BType IDENT;
+FuncFParam  :
+  BType IDENT{
+    auto ast=new FuncFParamast();
+    ast->kind=1;
+    ast->btype=unique_ptr<Baseast>($1);
+    ast->ident=*unique_ptr<string>($2);
+    $$=ast;
+  };
+
 //Decl          ::= ConstDecl| VarDecl;
 Decl : 
   ConstDecl
@@ -111,13 +195,16 @@ ConstDecl:
   }
   ;
 
+//BTpye 
 BType:
  INT{
    auto ast=new BTypeast();
    ast->kind=1;
-   ast->str="int";
+   ast->str="i32";
    $$=ast;
  };
+//ArrayDef:'[' ConstExp ']'| '[' ConstExp ']' ArrayDef
+//ArrayDef:
 
 //ConstDef      ::= IDENT "=" ConstInitVal;
 ConstDef:
@@ -163,7 +250,7 @@ ConstExp:
   $$=ast;
   };
 
-//VarDecl       ::= BType VarDef  ";";
+//VarDecl       ::= BType VarDef ";";
 VarDecl:
    BType VarDef ';'{
      auto ast=new VarDeclast();
@@ -174,8 +261,13 @@ VarDecl:
    }
 
 ;
+ 
+//VarDef: VarDefPart|VarDefPart ',' VarDef
+//VarDefPart: ValueName| ValueName "=" Initval 
+//ValueName: IDENT| IDENT ArrayDef
 
-//VarDef        ::= IDENT , | IDENT "=" InitVal;
+
+//VarDef        ::= IDENT | IDENT "=" InitVal|IDENT ',' VarDef|IDENT '=' InitVal ',' VarDef;
 VarDef:
   IDENT{
     auto ast=new VarDefast();
@@ -226,7 +318,7 @@ Block:
     $$ = ast;
   }
 ;
-//BlockItem     ::= Decl | Stmt;
+//BlockItem     ::= |Decl BlockItem| Stmt BlockItem;
 BlockItem : 
   {
     auto ast=new BlockItemast();
@@ -415,7 +507,7 @@ Number
     $$ = $1;
   }
   ;
-
+//UnaryExp    : PrmaryExp|UnaryOp UnaryExp | IDENT '(' ')'|IDENT '(' FuncRParams')';
 UnaryExp:
   PrimaryExp {
     auto ast=new UnaryExpast();
@@ -430,7 +522,35 @@ UnaryExp:
      ast->unaryexp=unique_ptr<Baseast>($2);
      $$=ast;
   }
+  | IDENT '(' ')'{
+    auto ast=new UnaryExpast();
+     ast->kind=3;
+     ast->ident=*unique_ptr<string> ($1);
+     $$=ast;
+  }
+  |IDENT '(' FuncRParams')'{
+    auto ast=new UnaryExpast();
+     ast->kind=4;
+     ast->ident=*unique_ptr<string> ($1);
+     ast->funcrparams=unique_ptr<Baseast>($3);
+     $$=ast;
+  }
   ;
+//FuncRParams:Exp|Exp ',' FuncRParams
+FuncRParams:
+  Exp{
+    auto ast=new FuncRParamsast();
+    ast->kind=1;
+    ast->exp=unique_ptr<Baseast>($1);
+    $$=ast;
+  } 
+  | Exp ',' FuncRParams{
+    auto ast=new FuncRParamsast();
+    ast->kind=2;
+    ast->exp=unique_ptr<Baseast>($1);
+    ast->funcrparams=unique_ptr<Baseast>($3);
+    $$=ast;
+  };
 
 UnaryOp:
   '+' {
