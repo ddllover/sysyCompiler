@@ -10,7 +10,7 @@ bool global = false;
 Fun_sym fun_symtab;
 map<string, Symbol> symbolmap;
 
-bool ret_flag = false;
+int ret_flag =0;
 int IF_cnt = 0;
 int While_cnt = 0;
 vector<int> vec_while;
@@ -19,7 +19,7 @@ int Continue_cnt = 0;
 
 void Fun_init()
 {
-  ret_flag = false;
+  ret_flag = 0;
   IF_cnt = 0;
   While_cnt = 0;
   vec_while.clear();
@@ -272,11 +272,11 @@ string DumpIfElse(unique_ptr<Baseast> &exp, unique_ptr<Baseast> &then_block, uni
 
   fprintf(IR, "%%then_%d:\n", con_num);
   then_block->Dump();
-  ret_flag ? ret_flag = false : fprintf(IR, "  jump %%if_end_%d\n\n", con_num);
+  fprintf(IR, "  jump %%if_end_%d\n\n", con_num);
 
   fprintf(IR, "%%else_%d:\n", con_num);
   else_block->Dump();
-  ret_flag ? ret_flag = false : fprintf(IR, "  jump %%if_end_%d\n\n", con_num);
+  fprintf(IR, "  jump %%if_end_%d\n\n", con_num);
 
   fprintf(IR, "%%if_end_%d:\n", con_num);
   return temp;
@@ -287,7 +287,7 @@ string DumpIf(unique_ptr<Baseast> &exp, unique_ptr<Baseast> &then_block, int con
   fprintf(IR, "  br %s, %%then_%d, %%if_end_%d\n\n", temp.c_str(), con_num, con_num);
   fprintf(IR, "%%then_%d:\n", con_num);
   then_block->Dump();
-  ret_flag ? ret_flag = false : fprintf(IR, "  jump %%if_end_%d\n\n", con_num);
+  fprintf(IR, "  jump %%if_end_%d\n\n", con_num);
 
   fprintf(IR, "%%if_end_%d:\n", con_num);
   return temp;
@@ -305,7 +305,7 @@ string DumpWhile(unique_ptr<Baseast> &exp, unique_ptr<Baseast> &body, int con_nu
 
   fprintf(IR, "%%while_body_%d:\n", con_num);
   body->Dump();
-  ret_flag ? ret_flag = false : fprintf(IR, "  jump %%while_entry_%d\n\n", con_num);
+  fprintf(IR, "  jump %%while_entry_%d\n\n", con_num);
 
   fprintf(IR, "%%while_end_%d:\n", con_num);
   vec_while.pop_back();

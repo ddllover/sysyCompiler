@@ -1,8 +1,8 @@
 #ifndef GRANDPARENT_H
 #define GRANDPARENT_H
 
-//#define DEBUG
-#define MAXCHARS 100000
+#define DEBUG
+#define MAXCHARS 1000
 
 #define YYMAXDEPTH 100000
 
@@ -33,7 +33,7 @@ public:
 extern string btype_str; // 声明时变量类型，以便所有声明的变量种类初始化
 extern FILE *IR;
 
-extern bool ret_flag;
+extern int ret_flag;
 extern int While_cnt; //记录条件指令个数
 extern vector<int> vec_while;
 extern int IF_cnt;
@@ -640,8 +640,6 @@ public:
     string temp;
     if (kind == 1)
       return temp;
-    if (ret_flag)
-      return temp;
     if (blockitem->kind != 1) // blockitem 不为空 为空返回空  空{}不计入block_num
     {
       //建立新的符号表
@@ -676,8 +674,6 @@ public:
   string Dump() override
   {
     string temp;
-    if (ret_flag)
-      return temp;
     if (kind == 1 || kind == 3) //为空返回值无用
     {
       decl->Dump();
@@ -879,13 +875,26 @@ public:
     else if (kind == 2)
     { //): %s{\n%%entry:\n
       fprintf(IR, "):%s {\n%%entry:\n", btype->Dump().c_str());
+      fprintf(IR, "  %%ret = alloc %s\n", btype->Dump().c_str());
       fun_symtab.type = 2;
     }
     all_fun_symtab.insert({ident, fun_symtab.type});
     funcargs->Dump();
+    fprintf(IR, "  jump %%begin\n\n%%begin:\n");
     block->Dump();
-    if (!ret_flag)
+    fprintf(IR,"  jump %%end\n\n");
+    fprintf(IR, "%%end:\n");
+    if (kind == 1)
+    {
       fprintf(IR, "  ret\n");
+    }
+    else if (kind == 2)
+    {
+      temp = "%" + to_string(++Count_Order);
+      fprintf(IR, "  %s = load %%ret\n", temp.c_str());
+      fprintf(IR, "  ret %s\n",temp.c_str());
+    }
+    // if (!ret_flag)
     fprintf(IR, "}\n\n");
     return temp;
   }
@@ -1011,8 +1020,6 @@ public:
   string Dump() override
   {
     string temp;
-    if (ret_flag)
-      return temp;
     if (kind == 1)
     {
       exma->Dump();
@@ -1042,8 +1049,6 @@ public:
   string Dump() override
   {
     string temp;
-    if (ret_flag)
-      return temp;
     if (kind == 1)
     { // IF '(' Exp ')' Stmt    base_cnt //基本块划分IF WHILE 命令数
       While_cnt++;
@@ -1081,17 +1086,17 @@ public:
   string Dump() override
   {
     string temp;
-    if (ret_flag)
-      return temp;
     if (kind == 1)
     { // return';'
-      fprintf(IR, "  ret\n\n");
-      ret_flag = true;
+
+      fprintf(IR, "  jump %%end\n\n");
+      fprintf(IR, "%%ret_%d:\n", ++ret_flag);
     }
     if (kind == 2) //"return" Exp ";"
     {
-      fprintf(IR, "  ret %s\n\n", exp->Dump().c_str());
-      ret_flag = true;
+      fprintf(IR, "  store %s, %%ret\n\n", exp->Dump().c_str());
+      fprintf(IR, "  jump %%end\n\n");
+      fprintf(IR, "%%ret_%d:\n", ++ret_flag);
     }
     else if (kind == 3) // LVal "=" Exp ";"
     {
