@@ -39,6 +39,7 @@ extern vector<int> vec_while;
 extern int IF_cnt;
 extern int Break_cnt;
 extern int Continue_cnt;
+extern int result_cnt;
 
 void Array_init();
 extern vector<int> vec_array_constexp;
@@ -1470,21 +1471,21 @@ public:
     else if (kind == 2)
     {
       // 短路求值
-      IF_cnt++;
-      int con_num = IF_cnt;
-      fprintf(IR, "  @result_%d = alloc i32\n", con_num);
-      fprintf(IR, "  store 0,@result_%d\n", con_num);
+      result_cnt++;
+      int con_num = result_cnt;
+      fprintf(IR, "  %%result_%d = alloc i32\n", con_num);
+      fprintf(IR, "  store 0,%%result_%d\n", con_num);
       temp = DumpUnaryOp(landexp->Dump(), "ne");
-      fprintf(IR, "  br %s, %%then_%d, %%if_end_%d\n\n", temp.c_str(), con_num, con_num);
-      fprintf(IR, "%%then_%d:\n", con_num);
+      fprintf(IR, "  br %s, %%land_r%d, %%land_l%d\n\n", temp.c_str(), con_num, con_num);
+      fprintf(IR, "%%land_r%d:\n", con_num);
       temp = DumpUnaryOp(eqexp->Dump(), "ne");
-      fprintf(IR, " store %s,@result_%d\n", temp.c_str(), con_num);
-      fprintf(IR, "  jump %%if_end_%d\n\n", con_num);
+      fprintf(IR, " store %s,%%result_%d\n", temp.c_str(), con_num);
+      fprintf(IR, "  jump %%land_l%d\n\n", con_num);
 
-      fprintf(IR, "%%if_end_%d:\n", con_num);
+      fprintf(IR, "%%land_l%d:\n", con_num);
       Count_Order++;
       temp = "%" + to_string(Count_Order);
-      fprintf(IR, "  %s= load @result_%d\n", temp.c_str(), con_num);
+      fprintf(IR, "  %s= load %%result_%d\n", temp.c_str(), con_num);
     }
     return temp;
   }
@@ -1521,21 +1522,21 @@ public:
     else if (kind == 2)
     {
       //短路求值
-      IF_cnt++;
-      int con_num = IF_cnt;
-      fprintf(IR, "  @result_%d = alloc i32\n", con_num);
-      fprintf(IR, "  store 1,@result_%d\n", con_num);
+      result_cnt++;
+      int con_num = result_cnt;
+      fprintf(IR, "  %%result_%d = alloc i32\n", con_num);
+      fprintf(IR, "  store 1,%%result_%d\n", con_num);
       temp = DumpUnaryOp(lorexp->Dump(), "ge");
-      fprintf(IR, "  br %s, %%then_%d, %%if_end_%d\n\n", temp.c_str(), con_num, con_num);
-      fprintf(IR, "%%then_%d:\n", con_num);
+      fprintf(IR, "  br %s, %%lor_r%d, %%lor_l%d\n\n", temp.c_str(), con_num, con_num);
+      fprintf(IR, "%%lor_r%d:\n", con_num);
       temp = DumpUnaryOp(landexp->Dump(), "ne");
-      fprintf(IR, " store %s,@result_%d\n", temp.c_str(), con_num);
-      fprintf(IR, "  jump %%if_end_%d\n\n", con_num);
+      fprintf(IR, " store %s,%%result_%d\n", temp.c_str(), con_num);
+      fprintf(IR, "  jump %%lor_l%d\n\n", con_num);
 
-      fprintf(IR, "%%if_end_%d:\n", con_num);
+      fprintf(IR, "%%lor_l%d:\n", con_num);
       Count_Order++;
       temp = "%" + to_string(Count_Order);
-      fprintf(IR, "  %s= load @result_%d\n", temp.c_str(), con_num);
+      fprintf(IR, "  %s= load %%result_%d\n", temp.c_str(), con_num);
     }
     return temp;
   }

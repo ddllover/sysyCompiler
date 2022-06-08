@@ -7,13 +7,281 @@ decl @putarray(i32, *i32)
 decl @starttime()
 decl @stoptime()
 
+global @tape = alloc [i32,65536], zeroinit
+global @program = alloc [i32,32768], zeroinit
+global @ptr = alloc i32, 0
+fun @read_program() {
+%entry:
+  jump %begin
+
+%begin:
+  @i_1= alloc i32
+  store 0, @i_1
+
+  @len_1= alloc i32
+  %0 = call @getint()
+  store %0, @len_1
+
+  jump %while_entry_1
+
+%while_entry_1:
+  %1 = load @i_1
+  %2 = load @len_1
+  %3 = lt %1, %2
+  br %3, %while_body_1, %while_end_1
+
+%while_body_1:
+  %4 = load @i_1
+  %5 = getelemptr @program, %4
+  %6 = call @getch()
+  store %6, %5
+  %7 = load @i_1
+  %8 = add %7, 1
+  store %8, @i_1
+
+  jump %while_entry_1
+
+%while_end_1:
+  %9 = load @i_1
+  %10 = getelemptr @program, %9
+  store 0, %10
+  jump %end
+
+%end:
+  ret
+}
+
+fun @interpret(%0: *i32) {
+%entry:
+  @input_0= alloc *i32
+  store %0, @input_0
+
+  jump %begin
+
+%begin:
+  @cur_char_1= alloc i32
+
+  @loop_1= alloc i32
+
+  @i_1= alloc i32
+  store 0, @i_1
+
+  jump %while_entry_1
+
+%while_entry_1:
+  %1 = load @i_1
+  %2 = load @input_0
+  %3 = getptr %2, %1
+  %4 = load %3
+
+  br %4, %while_body_1, %while_end_1
+
+%while_body_1:
+  %5 = load @i_1
+  %6 = load @input_0
+  %7 = getptr %6, %5
+  %8 = load %7
+
+  store %8, @cur_char_1
+
+  %9 = load @cur_char_1
+  %10 = eq %9, 62
+  br %10, %then_1, %else_1
+
+%then_1:
+  %11 = load @ptr
+  %12 = add %11, 1
+  store %12, @ptr
+
+  jump %if_end_1
+
+%else_1:
+  %13 = load @cur_char_1
+  %14 = eq %13, 60
+  br %14, %then_2, %else_2
+
+%then_2:
+  %15 = load @ptr
+  %16 = sub %15, 1
+  store %16, @ptr
+
+  jump %if_end_2
+
+%else_2:
+  %17 = load @cur_char_1
+  %18 = eq %17, 43
+  br %18, %then_3, %else_3
+
+%then_3:
+  %19 = load @ptr
+  %20 = getelemptr @tape, %19
+  %21 = load @ptr
+  %22 = getelemptr @tape, %21
+  %23 = load %22
+
+  %24 = add %23, 1
+  store %24, %20
+  jump %if_end_3
+
+%else_3:
+  %25 = load @cur_char_1
+  %26 = eq %25, 45
+  br %26, %then_4, %else_4
+
+%then_4:
+  %27 = load @ptr
+  %28 = getelemptr @tape, %27
+  %29 = load @ptr
+  %30 = getelemptr @tape, %29
+  %31 = load %30
+
+  %32 = sub %31, 1
+  store %32, %28
+  jump %if_end_4
+
+%else_4:
+  %33 = load @cur_char_1
+  %34 = eq %33, 46
+  br %34, %then_5, %else_5
+
+%then_5:
+  %35 = load @ptr
+  %36 = getelemptr @tape, %35
+  %37 = load %36
+
+  call @putch(%37)
+  jump %if_end_5
+
+%else_5:
+  %38 = load @cur_char_1
+  %39 = eq %38, 44
+  br %39, %then_6, %else_6
+
+%then_6:
+  %40 = load @ptr
+  %41 = getelemptr @tape, %40
+  %42 = call @getch()
+  store %42, %41
+  jump %if_end_6
+
+%else_6:
+  @result_8 = alloc i32
+  store 0,@result_8
+  %43 = load @cur_char_1
+  %44 = eq %43, 93
+  %45 = ne 0, %44
+  br %45, %then_8, %if_end_8
+
+%then_8:
+  %46 = load @ptr
+  %47 = getelemptr @tape, %46
+  %48 = load %47
+
+  %49 = ne 0, %48
+ store %49,@result_8
+  jump %if_end_8
+
+%if_end_8:
+  %50= load @result_8
+  br %50, %then_7, %if_end_7
+
+%then_7:
+  store 1, @loop_1
+
+  jump %while_entry_2
+
+%while_entry_2:
+  %51 = load @loop_1
+  %52 = gt %51, 0
+  br %52, %while_body_2, %while_end_2
+
+%while_body_2:
+  %53 = load @i_1
+  %54 = sub %53, 1
+  store %54, @i_1
+
+  %55 = load @i_1
+  %56 = load @input_0
+  %57 = getptr %56, %55
+  %58 = load %57
+
+  store %58, @cur_char_1
+
+  %59 = load @cur_char_1
+  %60 = eq %59, 91
+  br %60, %then_9, %else_9
+
+%then_9:
+  %61 = load @loop_1
+  %62 = sub %61, 1
+  store %62, @loop_1
+
+  jump %if_end_9
+
+%else_9:
+  %63 = load @cur_char_1
+  %64 = eq %63, 93
+  br %64, %then_10, %if_end_10
+
+%then_10:
+  %65 = load @loop_1
+  %66 = add %65, 1
+  store %66, @loop_1
+
+  jump %if_end_10
+
+%if_end_10:
+  jump %if_end_9
+
+%if_end_9:
+  jump %while_entry_2
+
+%while_end_2:
+  jump %if_end_7
+
+%if_end_7:
+  jump %if_end_6
+
+%if_end_6:
+  jump %if_end_5
+
+%if_end_5:
+  jump %if_end_4
+
+%if_end_4:
+  jump %if_end_3
+
+%if_end_3:
+  jump %if_end_2
+
+%if_end_2:
+  jump %if_end_1
+
+%if_end_1:
+  %67 = load @i_1
+  %68 = add %67, 1
+  store %68, @i_1
+
+  jump %while_entry_1
+
+%while_end_1:
+  jump %end
+
+%end:
+  ret
+}
+
 fun @main():i32 {
 %entry:
   %ret = alloc i32
   jump %begin
 
 %begin:
-  store 3, %ret
+  call @read_program()
+  %0 = getelemptr @program, 0
+
+  call @interpret(%0)
+  store 0, %ret
 
   jump %end
 
@@ -21,7 +289,7 @@ fun @main():i32 {
   jump %end
 
 %end:
-  %0 = load %ret
-  ret %0
+  %1 = load %ret
+  ret %1
 }
 

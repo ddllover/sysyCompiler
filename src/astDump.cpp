@@ -16,6 +16,7 @@ int While_cnt = 0;
 vector<int> vec_while;
 int Break_cnt = 0;
 int Continue_cnt = 0;
+int result_cnt=0;
 
 void Fun_init()
 {
@@ -25,6 +26,7 @@ void Fun_init()
   vec_while.clear();
   Break_cnt = 0;
   Continue_cnt = 0;
+  result_cnt=0;
   Baseast::Count_Order = -1;
   fun_symtab.clear();
   symbolmap.clear();
