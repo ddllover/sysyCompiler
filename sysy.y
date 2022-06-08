@@ -5,26 +5,30 @@ CompUnit      ::= [CompUnit] (Decl | FuncDef);
 Decl          : ConstDecl | VarDecl;
 
 BType :INT;
+
+
 ValType : |ArrayDef
 ArrayDef : '[' ConstExp ']'|'[' ConstExp ']' ArrayDef
 
 ConstDecl   :CONST BType ConstDef ';';
-ConstDef      :ConstDefPart|ConstDefPart ',' ConstDef;
-ConstDefPart :IDENT ValType '=' ConstInitVal;
+ConstDef      :IDENT ValType '=' ConstInitVal|IDENT ValType '=' ConstInitVal ',' ConstDef;
 ConstInitVal  :ConstExp|'{' '}' |'{'  ConstArrayVal '}'; 
 ConstArrayVal: ConstInitVal | ConstInitval ',' ConstArrayVal;
 ConstExp      :Exp;
 
 VarDecl       : BType VarDef ';';
-VarDef        : VarDefPart|VarDefPart ',' VarDef;
-VarDefPart     :IDENT ValTpye|IDENT ValTpye "=" InitVal;
+VarDef        : IDENT ValTpye|IDENT ValTpye "=" InitVal;|IDENT ValTpye|IDENT ValTpye "=" InitVal; ',' VarDef;
 InitVal       : Exp | '{' '}'|'{' ArrayInitVal '}';
 ArrayInitVal  : InitVal| InitVal ',' ArrayInitVal;
 
 FuncDef       ::= FuncType IDENT "(" [FuncFParams] ")" Block;
 FuncType      ::= "void" | "int";
 FuncFParams   ::= FuncFParam {"," FuncFParam};
-FuncFParam    ::= BType IDENT ["[" "]" {"[" ConstExp "]"}];
+FuncFParam    : BType IDENT |
+    BType IDENT []|
+    BType IDENT [] ArrayDef;
+
+
 
 Block         ::= "{" {BlockItem} "}";
 BlockItem     ::= Decl | Stmt;

@@ -38,13 +38,26 @@ extern int IF_cnt;
 extern int Break_cnt;
 extern int Continue_cnt;
 
+void Array_init();
+extern vector<int> vec_array_constexp;
+extern vector<string> vec_initval;
+extern vector<int> vec_block_len;
+extern int exp_cnt;
+void Count_block_len();
+void DumpGlobalArray(int depth);
+void DumpFuncArray(int depth, string array_name);
+extern vector<string> vec_array_exp;
+extern int vec_array_exp_len;
+
+string Visit_array(string array_num, int block_num, string type);
+
 void Fun_init();
 
 struct Symbol
 {
   int kind;      // 0为局部const常量 1为局部符号变量 2为全局const 3为全局变量
-  int val;       // 没有初始化时，默认为0
-  string type;   //变量类型
+  int val;       // 没有初始化时，默认为0, 数组用val记录维数
+  string type;   //变量类型i32  [[i32,len_max],len_max-1] *
   int block_num; //记录符号所属于的block
 };
 
@@ -58,18 +71,18 @@ struct Fun_sym //每个函数符号表
   {
     block_num = 0;
     block_cnt = 0;
-    type=0;
+    type = 0;
   }
   void clear()
   {
     block_num = 0;
     block_cnt = 0;
-    type=0;
+    type = 0;
     vec_symbolmap.clear();
   }
 };
-extern map<string, int> all_fun_symtab; //所有函数的符号表
-extern map<string, Symbol> glo_symbolmap;   //全局变量
+extern map<string, int> all_fun_symtab;   //所有函数的符号表
+extern map<string, Symbol> glo_symbolmap; //全局变量
 extern bool global;
 
 extern Fun_sym fun_symtab;            //当前函数的符号表
@@ -89,19 +102,22 @@ string Dumpop(string temp1, string temp2, string op);
 string DumpUnaryOp(string temp1, string op);
 string DumpLoad(string lval, int block_num);
 string DumpStore(string temp1, string lval, int block_num);
-string DumpAlloc(string temp1, int block_num);
+string DumpAlloc(string temp1, int block_num, string type);
 string DumpWhile(unique_ptr<Baseast> &exp, unique_ptr<Baseast> &body, int con_num);
 string DumpIfElse(unique_ptr<Baseast> &exp, unique_ptr<Baseast> &then_block, unique_ptr<Baseast> &else_block, int con_num);
 string DumpIf(unique_ptr<Baseast> &exp, unique_ptr<Baseast> &then_block, int con_num);
 string DumpCall(string ident, string param);
 
-class AST:public Baseast{
-  public:
+class AST : public Baseast
+{
+public:
   unique_ptr<Baseast> compunit;
-  string Dump() override{
+  string Dump() override
+  {
     return compunit->Dump();
   }
-  int Calc() override{
+  int Calc() override
+  {
     return 0;
   }
 };
@@ -184,6 +200,58 @@ public:
   }
 };
 
+// ValType : |ArrayDef
+class ValTypeast : public Baseast
+{
+public:
+  unique_ptr<Baseast> arraydef;
+  string Dump() override
+  {
+    string temp;
+    if (kind == 1)
+    {
+      temp = "i32";
+    }
+    else if (kind == 2)
+    {
+      temp = arraydef->Dump();
+    }
+    return temp;
+  }
+  int Calc() override
+  {
+    return 0;
+  }
+};
+// ArrayDef : '[' ConstExp ']'|'[' ConstExp ']' ArrayDef
+class ArrayDefast : public Baseast
+{ //记录下数组维数
+public:
+  unique_ptr<Baseast> constexp;
+  unique_ptr<Baseast> arraydef;
+  string Dump() override
+  { //返回值为数组类型string 并在vec_array_constexp中记录各个维数
+    string temp;
+    if (kind == 1)
+    {
+      int val = constexp->Calc();
+      vec_array_constexp.push_back(val);
+      temp = "[i32," + to_string(val) + "]";
+    }
+    else if (kind == 2)
+    {
+      int val = constexp->Calc();
+      vec_array_constexp.push_back(val);
+      temp = "[" + arraydef->Dump() + "," + to_string(val) + "]";
+    }
+    return temp;
+  }
+  int Calc() override
+  {
+    return 0;
+  }
+};
+
 // Decl          ::= ConstDecl|VarDecl;
 class Declast : public Baseast
 {
@@ -225,12 +293,13 @@ public:
   }
 };
 
-// ConstDef      ::= IDENT "=" ConstInitVal|IDENT "=" ConstInitVal ',' ConstDef;
+// ConstDef      ::= IDENT ValType "=" ConstInitVal|IDENT ValType "=" ConstInitVal ',' ConstDef;
 class ConstDefast : public Baseast
 {
 public:
   unique_ptr<Baseast> constinitval;
   string ident;
+  unique_ptr<Baseast> valtype;
   unique_ptr<Baseast> constdef;
   string Dump() override
   {
@@ -238,18 +307,44 @@ public:
   }
   int Calc() override
   {
-    int val=constinitval->Calc();
-    if (!global)
+
+    Array_init();
+    string type = valtype->Dump();
+
+    if (type == "i32") //不是数组
     {
-      symbolmap.insert({ident, {0,val , btype_str, fun_symtab.block_num}});
+      int val = constinitval->Calc();
+      if (!global)
+      {
+        symbolmap.insert({ident, {0, val, btype_str, fun_symtab.block_num}});
+      }
+      else
+      {
+        glo_symbolmap.insert({ident, {2, val, btype_str, -1}});
+      }
+#ifdef DEBUG
+      cout << "const:" << ident << " " << val << endl;
+#endif
     }
     else
-    {
-      glo_symbolmap.insert({ident, {2, val, btype_str, -1}});
+    { // const 数组需要存到IR里面
+      constinitval->Dump();
+      if (global)
+      {
+        fprintf(IR, "global @%s = alloc %s , {", ident.c_str(), type.c_str());
+        DumpGlobalArray(0);
+        fprintf(IR, " }\n");
+        glo_symbolmap.insert({ident, {2, int(vec_array_constexp.size()), type, -1}});
+      }
+      else
+      {
+        DumpAlloc(ident, fun_symtab.block_num, type);
+        DumpFuncArray(0, ident + "_" + to_string(fun_symtab.block_num));
+        fprintf(IR, "\n");
+        symbolmap.insert({ident, {0, int(vec_array_constexp.size()), type, fun_symtab.block_num}});
+      }
     }
-#ifdef DEBUG
-    cout << "const:" << ident << " " <<val << endl;
-#endif
+
     if (kind == 2)
     {
       constdef->Calc();
@@ -258,18 +353,80 @@ public:
   }
 };
 
-// ConstInitVal  ::= ConstExp;
+// ConstInitVal :ConstExp|'{' '}' |'{'  ConstArrayVal '}';
 class ConstInitValast : public Baseast
 {
 public:
   unique_ptr<Baseast> constexp;
+  unique_ptr<Baseast> constarrayval;
+  // int size; //当前的初始化单位的
   string Dump() override
   {
-    return "";
+    string temp;
+
+    if (kind == 1)
+    {
+      exp_cnt++;
+      vec_initval.push_back(to_string(constexp->Calc()));
+    }
+    else if (kind == 2)
+    {
+
+      Count_block_len();
+      int size = vec_block_len.back();
+      for (int i = 0; i < size; i++)
+      {
+        vec_initval.push_back("0");
+      }
+      vec_block_len.pop_back();
+      exp_cnt = 0;
+    }
+    else if (kind == 3)
+    {
+      Count_block_len();
+      int vec_add = vec_initval.size();
+      temp = constarrayval->Dump();
+      vec_add = vec_initval.size() - vec_add;
+
+      int size = vec_block_len.back();
+      for (; vec_add < size; vec_add++)
+      {
+        vec_initval.push_back("0");
+      }
+      vec_block_len.pop_back();
+      exp_cnt = 0;
+    }
+    return temp;
   }
   int Calc() override
   {
     return constexp->Calc();
+  }
+};
+// ConstArrayVal: ConstInitVal | ConstInitval ',' ConstArrayVal;
+class ConstArrayValast : public Baseast //避免最外层括号的判断直接从constarrayval开始递归
+{
+public:
+  unique_ptr<Baseast> constinitval;
+  unique_ptr<Baseast> constarrayval;
+  // int depth;
+  string Dump() override
+  {
+    string temp;
+    if (kind == 1)
+    {
+      constinitval->Dump();
+    }
+    else if (kind == 2)
+    {
+      constinitval->Dump();
+      constarrayval->Dump();
+    }
+    return temp;
+  }
+  int Calc() override
+  {
+    return 0;
   }
 };
 
@@ -305,62 +462,71 @@ public:
   }
 };
 
-// VarDef        ::= (IDENT , | IDENT "=" InitVal) {',' VarDef};
+// VarDef: IDENT ValType| IDENT ValType "=" InitVal| IDENT ValType ',' VarDef|IDENT ValType "=" InitVal ',' VarDef;
 class VarDefast : public Baseast
 {
 public:
   string ident;
   unique_ptr<Baseast> initval;
   unique_ptr<Baseast> vardef;
+  unique_ptr<Baseast> valtype;
   string Dump() override
   {
     string temp;
 
-    if (!global)
-    {
-      //局部变量只需要表明类型以及和const区分，值由IR计算
-  
-      symbolmap.insert({ident, {1, 0, btype_str, fun_symtab.block_num}});
-
-      //  vardef 声明 @ident = alloc btype_str
-      DumpAlloc(ident, fun_symtab.block_num);
-
-      // 定义 store %count, @ident
+    Array_init();
+    string type = valtype->Dump();
+    if (global)
+    { //和const array相同
+      int val = vec_array_constexp.size();
+      fprintf(IR, "global @%s = alloc %s, ", ident.c_str(), type.c_str());
       if (kind == 2 || kind == 4)
       {
-        DumpStore(initval->Dump(), ident, fun_symtab.block_num);
+
+        if (type == "i32")
+        {
+          val = initval->Calc();
+          fprintf(IR, "%d\n", val);
+        }
+        else
+        {
+          initval->Calc();
+          fprintf(IR, "{ ");
+          DumpGlobalArray(0);
+          fprintf(IR, " }\n");
+        }
       }
       else
-      {
-        fprintf(IR, "\n"); //每个变量划分一个块便于debug
-      }
-
-      if (kind == 3 || kind == 4)
-      {
-        vardef->Dump();
-      }
-    }
-    else
-    {
-      int val = 0; //全局变量必须定义初始值
-      if (kind == 2 || kind == 4)
-      {
-        val = initval->Calc();
-      }
-      glo_symbolmap.insert({ident, {3, val, btype_str, -1}});
-      fprintf(IR, "global @%s = alloc %s, ", ident.c_str(), btype_str.c_str());
-      if (val == 0)
       {
         fprintf(IR, "zeroinit\n");
       }
+      glo_symbolmap.insert({ident, {3, val, type, -1}});
+    }
+    else if (!global)
+    {
+      DumpAlloc(ident, fun_symtab.block_num, type);
+      if (kind == 2 || kind == 4)
+      {
+        if (type == "i32")
+        {
+          DumpStore(initval->Dump(), ident, fun_symtab.block_num);
+        }
+        else
+        {
+          initval->Calc();
+          DumpFuncArray(0, ident + "_" + to_string(fun_symtab.block_num));
+          fprintf(IR, "\n");
+        }
+      }
       else
       {
-        fprintf(IR, "%d\n", val);
+        fprintf(IR, "\n");
       }
-      if (kind == 3 || kind == 4)
-      {
-        vardef->Dump();
-      }
+      symbolmap.insert({ident, {1, int(vec_array_constexp.size()), type, fun_symtab.block_num}});
+    }
+    if (kind == 3 || kind == 4)
+    {
+      vardef->Dump();
     }
     return temp;
   }
@@ -370,19 +536,95 @@ public:
   }
 };
 
-// InitVal       ::= Exp;
+// InitVal   :Exp | '{' '}'|'{' ArrayInitVal '}';
 class InitValast : public Baseast
 {
 public:
   unique_ptr<Baseast> exp;
+  unique_ptr<Baseast> arrayinitval;
   string Dump() override
   {
-    string temp = exp->Dump();
+    string temp;
+    if (kind == 1)
+    {
+      temp = exp->Dump();
+    }
+    else if (kind == 2)
+    {
+    }
+    else if (kind == 3)
+    {
+    }
     return temp;
   }
   int Calc() override
   {
-    return exp->Calc();
+    int temp = 0;
+    if (kind == 1)
+    {
+      exp_cnt++;
+      if (global)
+      {
+        temp = exp->Calc();
+        vec_initval.push_back(to_string(temp));
+      }
+      else
+      {
+        vec_initval.push_back(exp->Dump());
+      }
+    }
+    else if (kind == 2)
+    {
+      Count_block_len();
+      int size = vec_block_len.back();
+      for (int i = 0; i < size; i++)
+      {
+        vec_initval.push_back("0");
+      }
+      vec_block_len.pop_back();
+      exp_cnt = 0;
+    }
+    else if (kind == 3)
+    {
+      Count_block_len();
+      int vec_add = vec_initval.size();
+      arrayinitval->Calc();
+      vec_add = vec_initval.size() - vec_add;
+
+      int size = vec_block_len.back();
+      for (; vec_add < size; vec_add++)
+      {
+        vec_initval.push_back("0");
+      }
+      vec_block_len.pop_back();
+      exp_cnt = 0;
+    }
+    return temp;
+  }
+};
+// ArrayInitVal  : InitVal| InitVal ',' ArrayInitVal;
+class ArrayInitValast : public Baseast
+{
+public:
+  unique_ptr<Baseast> initval;
+  unique_ptr<Baseast> arrayinitval;
+  string Dump() override
+  {
+    string temp;
+    return temp;
+  }
+  int Calc() override
+  {
+    if (kind == 1)
+    {
+      initval->Calc();
+    }
+    else if (kind == 2)
+    {
+      initval->Calc();
+      arrayinitval->Calc();
+    }
+    return 0;
   }
 };
 
@@ -456,33 +698,82 @@ public:
   }
 };
 
-// LVal          ::= IDENT;
+// ::= IDENT|IDENT ArrayExp;
 class LValast : public Baseast
 { //用符号表记录LVal和其对应的值
 public:
   string ident;
+  unique_ptr<Baseast> arrayexp;
   string Dump() override //返回name
   {
-    return ident;
+    string temp;
+    if (kind == 1)
+    {
+      temp = ident;
+      vec_array_exp_len = 0;
+    }
+    else if (kind == 2)
+    {
+      temp = ident;
+      arrayexp->Dump();
+      vec_array_exp_len = arrayexp->Calc();
+    }
+    return temp;
   }
-  int Calc() override //返回value
+  int Calc() override //返回value  该函数只有const常量会调用需要
   {
 
     Symbol lval_sym = Symbol_find(ident);
-    // Symbol lval_sym = lval_symtab->symbolmap[ident];
-    // assert(!lval_sym.kind);  全局变量的初始值可以用全局变量定义
+    assert(lval_sym.kind == 0 || lval_sym.kind == 2);
     return lval_sym.val;
   }
 };
 
+// ArrayExp: '['Exp']'|'['Exp']' ArrayExp
+class ArrayExpast : public Baseast
+{
+public:
+  // lval存在迭代 vec_array_exp 不好共用
+  unique_ptr<Baseast> exp;
+  unique_ptr<Baseast> arrayexp;
+  string Dump() override
+  {
+    string temp;
+    if (kind == 1)
+    {
+      vec_array_exp.push_back(exp->Dump());
+    }
+    else if (kind == 2)
+    {
+      arrayexp->Dump();
+      vec_array_exp.push_back(exp->Dump());
+    }
+    return temp;
+  }
+  int Calc() override
+  { //需要计算数组迭代的长度
+    int temp = 0;
+    if (kind == 1)
+    {
+      // vec_array_exp.push_back(exp->Dump());
+      temp = 1;
+    }
+    else if (kind == 2)
+    {
+      temp = arrayexp->Calc() + 1;
+      // vec_array_exp.push_back(exp->Dump());
+    }
+    return temp;
+  }
+};
+
 // PrimaryExp    ::= "(" Exp ")"  | Number| LVal;
-class PrimaryExpast : public Baseast // lval 分为常量和变量 常量直接换成number 变量需要load
+class PrimaryExpast : public Baseast // lval 分为常量和变量 常量直接换成number 变量需要load 数组需要load其需要的指针
 {
 public:
   unique_ptr<Baseast> exp;
   int number;
   unique_ptr<Baseast> lval;
-
   string Dump() override
   {
     string temp;
@@ -496,16 +787,50 @@ public:
     }
     else if (kind == 3)
     {
+      // Array_init();
       string ident = lval->Dump();
-      // Symboltab *lval_symtab = Symtab_find(dump_symtab, ident);
       Symbol lval_sym = Symbol_find(ident);
-      if (lval_sym.kind == 0||lval_sym.kind==2)
-      { // const常量
-        temp = to_string(lval_sym.val);
+      if (lval_sym.type == "i32")
+      {
+        if (lval_sym.kind == 0 || lval_sym.kind == 2)
+        { // const常量
+          temp = to_string(lval_sym.val);
+        }
+        else if (lval_sym.kind == 1 || lval_sym.kind == 3)
+        { // 变量
+          temp = DumpLoad(ident, lval_sym.block_num);
+        }
       }
-      else if (lval_sym.kind == 1||lval_sym.kind==3)
-      { // 变量
-        temp = DumpLoad(ident, lval_sym.block_num);
+      else //数组
+      {
+
+        if (lval_sym.val == vec_array_exp_len)
+        { //由于visit_array改变了vector就把判断放最前面了
+          string get_array = Visit_array(ident, lval_sym.block_num, lval_sym.type);
+          temp = "%" + to_string(++Baseast::Count_Order);
+          fprintf(IR, "  %s = load %s\n\n", temp.c_str(), get_array.c_str());
+        }
+        else
+        { //如果不等于代表此时是个指针
+          string get_array = Visit_array(ident, lval_sym.block_num, lval_sym.type);
+          if (get_array.empty())
+          {
+            if (lval_sym.block_num != -1)
+            {
+              get_array = "@" + ident + "_" + to_string(lval_sym.block_num);
+            }
+            else
+              get_array = "@" + ident;
+          }
+          if (lval_sym.type[0] == '*' && vec_array_exp_len==0)
+          {
+            temp=get_array;
+          }  
+          else {
+            temp = "%" + to_string(++Baseast::Count_Order);
+            fprintf(IR, "  %s = getelemptr %s, 0\n\n", temp.c_str(), get_array.c_str());
+          }
+        }
       }
     }
     return temp;
@@ -557,11 +882,9 @@ public:
     all_fun_symtab.insert({ident, fun_symtab.type});
     funcargs->Dump();
     block->Dump();
-    if(!ret_flag) fprintf(IR,"  ret\n");
+    if (!ret_flag)
+      fprintf(IR, "  ret\n");
     fprintf(IR, "}\n\n");
-
-    
-
     return temp;
   }
 
@@ -616,7 +939,7 @@ public:
         fprintf(IR, " , ");
         Dump_cnt = 2;
       }
-      else if(Dump_cnt==2)
+      else if (Dump_cnt == 2)
       {
         Dump_cnt = 1;
       }
@@ -630,45 +953,45 @@ public:
   }
 };
 
-// FuncFParam  :BType IDENT;
+// FuncFParam  : BType IDENT |BType IDENT []| BType IDENT [] ArrayDef;
 class FuncFParamast : public Baseast
 {
 public:
   unique_ptr<Baseast> btype;
   string ident;
-  int Dump_cnt = 1;
+  unique_ptr<Baseast> arraydef;
+  string sym_cnt;
+  string type;
+  int Dump_cnt = 1; //函数参数要分两部分输出
   string Dump() override
   {
     string temp;
+    Array_init();
     if (Dump_cnt == 1)
     {
-      fprintf(IR, "%%%s:%s", ident.c_str(), btype->Dump().c_str());
-      Dump_cnt=2;
+      sym_cnt = "%" + to_string(++Count_Order);
+      if (kind == 1)
+      {
+        type = btype->Dump();
+      }
+      else if (kind == 2)
+      {
+        type = "*" + btype->Dump();
+      }
+      else if (kind == 3)
+      {
+        type = "*" + arraydef->Dump();
+      }
+      fprintf(IR, "%s: %s", sym_cnt.c_str(), type.c_str());
+      symbolmap.insert({ident, {1, int(vec_array_constexp.size()) + 1, type, fun_symtab.block_num}});
+      Dump_cnt = 2;
     }
     else if (Dump_cnt == 2)
     {
-      symbolmap.insert({ident,{1,0,btype->Dump(),fun_symtab.block_num}});
-      DumpAlloc(ident, fun_symtab.block_num);
-      DumpStore("%" + ident, ident, fun_symtab.block_num);
+      DumpAlloc(ident, fun_symtab.block_num, type);
+      DumpStore(sym_cnt, ident, fun_symtab.block_num);
       Dump_cnt = 1;
     }
-    return temp;
-  }
-  int Calc() override
-  {
-    return 0;
-  }
-};
-
-class FuncTypeast : public Baseast // FuncType    ::= "int";
-{
-public:
-  string str;
-  unique_ptr<Baseast> btype;
-  string Dump() override
-  {
-    char temp[MAXCHARS] = {0};
-    sprintf(temp, "i32 ");
     return temp;
   }
   int Calc() override
@@ -771,10 +1094,18 @@ public:
     else if (kind == 3) // LVal "=" Exp ";"
     {
       // lval 在stmt需要 store ,lval 在exp中需要load
+      Array_init();
       string ident = lval->Dump();
       Symbol lval_sym = Symbol_find(ident);
-
-      DumpStore(exp->Dump(), ident, lval_sym.block_num);
+      if (lval_sym.type == "i32")
+      {
+        DumpStore(exp->Dump(), ident, lval_sym.block_num);
+      }
+      else
+      {
+        temp = Visit_array(ident, lval_sym.block_num, lval_sym.type);
+        fprintf(IR, "  store %s, %s\n", exp->Dump().c_str(), temp.c_str());
+      }
     }
     else if (kind == 4) //';'
     {
@@ -1133,20 +1464,20 @@ public:
     {
       // 短路求值
       IF_cnt++;
-      int con_num=IF_cnt;
-      fprintf(IR,"  @result_%d = alloc i32\n",con_num);
-      fprintf(IR,"  store 0,@result_%d\n",con_num);
+      int con_num = IF_cnt;
+      fprintf(IR, "  @result_%d = alloc i32\n", con_num);
+      fprintf(IR, "  store 0,@result_%d\n", con_num);
       temp = DumpUnaryOp(landexp->Dump(), "ne");
-      fprintf(IR, "  br %s, %%then_%d, %%if_end_%d\n\n", temp.c_str(), con_num,con_num);
+      fprintf(IR, "  br %s, %%then_%d, %%if_end_%d\n\n", temp.c_str(), con_num, con_num);
       fprintf(IR, "%%then_%d:\n", con_num);
-      temp=DumpUnaryOp(eqexp->Dump(),"ne");
-      fprintf(IR," store %s,@result_%d\n",temp.c_str(),con_num);
+      temp = DumpUnaryOp(eqexp->Dump(), "ne");
+      fprintf(IR, " store %s,@result_%d\n", temp.c_str(), con_num);
       fprintf(IR, "  jump %%if_end_%d\n\n", con_num);
 
       fprintf(IR, "%%if_end_%d:\n", con_num);
       Count_Order++;
-      temp="%"+to_string(Count_Order);
-      fprintf(IR,"  %s= load @result_%d\n",temp.c_str(),con_num);
+      temp = "%" + to_string(Count_Order);
+      fprintf(IR, "  %s= load @result_%d\n", temp.c_str(), con_num);
     }
     return temp;
   }
@@ -1184,20 +1515,20 @@ public:
     {
       //短路求值
       IF_cnt++;
-      int con_num=IF_cnt;
-      fprintf(IR,"  @result_%d = alloc i32\n",con_num);
-      fprintf(IR,"  store 1,@result_%d\n",con_num);
+      int con_num = IF_cnt;
+      fprintf(IR, "  @result_%d = alloc i32\n", con_num);
+      fprintf(IR, "  store 1,@result_%d\n", con_num);
       temp = DumpUnaryOp(lorexp->Dump(), "ge");
-      fprintf(IR, "  br %s, %%then_%d, %%if_end_%d\n\n", temp.c_str(), con_num,con_num);
-      fprintf(IR, "%%then_%d:\n",con_num);
-      temp=DumpUnaryOp(landexp->Dump(),"ne");
-      fprintf(IR," store %s,@result_%d\n",temp.c_str(),con_num);
+      fprintf(IR, "  br %s, %%then_%d, %%if_end_%d\n\n", temp.c_str(), con_num, con_num);
+      fprintf(IR, "%%then_%d:\n", con_num);
+      temp = DumpUnaryOp(landexp->Dump(), "ne");
+      fprintf(IR, " store %s,@result_%d\n", temp.c_str(), con_num);
       fprintf(IR, "  jump %%if_end_%d\n\n", con_num);
 
       fprintf(IR, "%%if_end_%d:\n", con_num);
       Count_Order++;
-      temp="%"+to_string(Count_Order);
-      fprintf(IR,"  %s= load @result_%d\n",temp.c_str(),con_num);
+      temp = "%" + to_string(Count_Order);
+      fprintf(IR, "  %s= load @result_%d\n", temp.c_str(), con_num);
     }
     return temp;
   }

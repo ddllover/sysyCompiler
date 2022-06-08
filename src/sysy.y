@@ -54,7 +54,8 @@ using namespace std;
 %type <int_val> Number
 //8
 %type <ast_val> CompUnit Unit FuncArgs FuncFParams FuncFParam FuncRParams
-
+//9
+%type <ast_val>  ValType ArrayDef  ConstArrayVal ArrayInitVal ArrayExp
 %right ELSE
 %%
 //CompUnit:Unit| FuncDef;
@@ -156,12 +157,64 @@ FuncFParams :
     $$=ast;
   };
 //FuncFParam  :BType IDENT;
+//FuncFParam    : BType IDENT |BType IDENT []| BType IDENT [] ArrayDef;
 FuncFParam  :
   BType IDENT{
     auto ast=new FuncFParamast();
     ast->kind=1;
     ast->btype=unique_ptr<Baseast>($1);
     ast->ident=*unique_ptr<string>($2);
+    $$=ast;
+  }
+  |BType IDENT '[' ']'{
+    auto ast=new FuncFParamast();
+    ast->kind=2;
+    ast->btype=unique_ptr<Baseast>($1);
+    ast->ident=*unique_ptr<string>($2);
+    $$=ast;
+  }
+  |BType IDENT '[' ']' ArrayDef{
+    auto ast=new FuncFParamast();
+    ast->kind=3;
+    ast->btype=unique_ptr<Baseast>($1);
+    ast->ident=*unique_ptr<string>($2);
+    ast->arraydef=unique_ptr<Baseast>($5);
+    $$=ast;
+  };
+//BType:INT
+BType:
+ INT{
+   auto ast=new BTypeast();
+   ast->kind=1;
+   ast->str="i32";
+   $$=ast;
+ };
+//ValType : |ArrayDef
+ValType : 
+  {
+    auto ast=new ValTypeast();
+    ast->kind=1;
+    $$=ast;
+  }
+  |ArrayDef{
+    auto ast=new ValTypeast();
+    ast->kind=2;
+    ast->arraydef=unique_ptr<Baseast>($1);
+    $$=ast;
+  };
+//ArrayDef : '[' ConstExp ']'|'[' ConstExp ']' ArrayDef
+ArrayDef : 
+  '[' ConstExp ']'{
+    auto ast=new ArrayDefast();
+    ast->kind=1;
+    ast->constexp=unique_ptr<Baseast>($2);
+    $$=ast;
+  }
+  |'[' ConstExp ']' ArrayDef{
+    auto ast=new ArrayDefast();
+    ast->kind=2;
+    ast->constexp=unique_ptr<Baseast>($2);
+    ast->arraydef=unique_ptr<Baseast>($4);
     $$=ast;
   };
 
@@ -195,43 +248,33 @@ ConstDecl:
   }
   ;
 
-//BTpye 
-BType:
- INT{
-   auto ast=new BTypeast();
-   ast->kind=1;
-   ast->str="i32";
-   $$=ast;
- };
-//ArrayDef:'[' ConstExp ']'| '[' ConstExp ']' ArrayDef
-//ArrayDef:
-
-//ConstDef      ::= IDENT "=" ConstInitVal;
+//ConstDef      ::= IDENT ValTpye "=" ConstInitVal |IDENT ValTpye '=' ConstInitVal ',' ConstDef;
 ConstDef:
-  IDENT '=' ConstInitVal
+  IDENT ValType '=' ConstInitVal
   {
     
     auto ast=new ConstDefast();
     ast->kind=1;
     ast->ident=*unique_ptr<string>($1);
-    ast->constinitval=unique_ptr<Baseast>($3);
+    ast->valtype=unique_ptr<Baseast>($2);
+    ast->constinitval=unique_ptr<Baseast>($4);
     $$=ast;
   } 
-  | IDENT '=' ConstInitVal ',' ConstDef
+  | IDENT ValType '=' ConstInitVal ',' ConstDef
   {
     
     auto ast=new ConstDefast();
     ast->kind=2;
     ast->ident=*unique_ptr<string>($1);
-    ast->constinitval=unique_ptr<Baseast>($3);
-    ast->constdef=unique_ptr<Baseast> ($5);
+    ast->valtype=unique_ptr<Baseast>($2);
+    ast->constinitval=unique_ptr<Baseast>($4);
+    ast->constdef=unique_ptr<Baseast> ($6);
     $$=ast;
   }
   ;
 
-//ConstInitVal  ::= ConstExp;
 
-
+//ConstInitVal  :ConstExp|'{' '}' |'{'  ConstArrayVal '}'; 
 ConstInitVal  : 
   ConstExp
   {
@@ -240,7 +283,36 @@ ConstInitVal  :
     ast->constexp=unique_ptr<Baseast> ($1);
     $$=ast;
   }
+  |'{' '}' {
+    auto ast=new ConstInitValast();
+    ast->kind=2;
+    $$=ast;
+  }
+  |'{'  ConstArrayVal '}'
+  {
+    auto ast=new ConstInitValast();
+    ast->kind=3;
+    ast->constarrayval=unique_ptr<Baseast>($2);
+    $$=ast;
+  }
 ;
+//ConstArrayVal: ConstInitVal | ConstInitval ',' ConstArrayVal;
+ConstArrayVal: 
+  ConstInitVal
+  {
+    auto ast=new ConstArrayValast();
+    ast->kind=1;
+    ast->constinitval=unique_ptr<Baseast>($1);
+    $$=ast;
+  } 
+  | ConstInitVal ',' ConstArrayVal
+  {
+    auto ast=new ConstArrayValast();
+    ast->kind=2;
+    ast->constinitval=unique_ptr<Baseast>($1);
+    ast->constarrayval=unique_ptr<Baseast>($3);
+    $$=ast;
+  };
 //ConstExp      ::= Exp;
 ConstExp: 
   Exp{
@@ -262,52 +334,79 @@ VarDecl:
 
 ;
  
-//VarDef: VarDefPart|VarDefPart ',' VarDef
-//VarDefPart: ValueName| ValueName "=" Initval 
-//ValueName: IDENT| IDENT ArrayDef
-
-
-//VarDef        ::= IDENT | IDENT "=" InitVal|IDENT ',' VarDef|IDENT '=' InitVal ',' VarDef;
+//VarDef        ::= IDENT ValType | IDENT ValTpye "=" InitVal|IDENT ValTpye ',' VarDef|IDENT ValTpye '=' InitVal ',' VarDef;
 VarDef:
-  IDENT{
+  IDENT ValType{
     auto ast=new VarDefast();
     ast->kind=1;
     ast->ident=*unique_ptr<string>($1);
+    ast->valtype=unique_ptr<Baseast>($2);
     $$=ast;
   }
-  |IDENT '=' InitVal {
+  |IDENT ValType '=' InitVal {
     auto ast=new VarDefast();
     ast->kind=2;
     ast->ident=*unique_ptr<string>($1);
-    ast->initval=unique_ptr<Baseast>($3);
+    ast->valtype=unique_ptr<Baseast>($2);
+    ast->initval=unique_ptr<Baseast>($4);
     $$=ast;
   }
-  | IDENT ',' VarDef{
+  | IDENT ValType ',' VarDef{
     auto ast=new VarDefast();
     ast->kind=3;
     ast->ident=*unique_ptr<string>($1);
-    ast->vardef=unique_ptr<Baseast>($3);
+    ast->valtype=unique_ptr<Baseast>($2);
+    ast->vardef=unique_ptr<Baseast>($4);
     $$=ast;
   }
-  | IDENT '=' InitVal ',' VarDef{
+  | IDENT ValType '=' InitVal ',' VarDef{
     auto ast=new VarDefast();
     ast->kind=4;
     ast->ident=*unique_ptr<string>($1);
-    ast->initval=unique_ptr<Baseast>($3);
-    ast->vardef=unique_ptr<Baseast>($5);
+    ast->valtype=unique_ptr<Baseast>($2);
+    ast->initval=unique_ptr<Baseast>($4);
+    ast->vardef=unique_ptr<Baseast>($6);
     $$=ast;
   }
   ;
 
-//InitVal       ::= Exp;
+//InitVal       : Exp | '{' '}'|'{' ArrayInitVal '}';
 InitVal:
   Exp{
     auto ast=new InitValast();
     ast->kind=1;
     ast->exp=unique_ptr<Baseast>($1);
     $$=ast;
+  }
+  | '{' '}'
+  {
+    auto ast=new InitValast();
+    ast->kind=2;
+    $$=ast;
+  }
+  |'{' ArrayInitVal '}'
+  {
+    auto ast=new InitValast();
+    ast->kind=3;
+    ast->arrayinitval=unique_ptr<Baseast>($2);
+    $$=ast;
+  }
+  ;
+//ArrayInitVal  : InitVal| InitVal ',' ArrayInitVal;
+ArrayInitVal  : 
+  InitVal{
+    auto ast=new ArrayInitValast();
+    ast->kind=1;
+    ast->initval=unique_ptr<Baseast>($1);
+    $$=ast;
+  }
+  | InitVal ',' ArrayInitVal{
+    auto ast=new ArrayInitValast();
+    ast->kind=2;
+    ast->initval=unique_ptr<Baseast>($1);
+    ast->arrayinitval=unique_ptr<Baseast>($3);
+    $$=ast;
   };
-
 
 //Block         ::= "{" {BlockItem} "}";
 Block: 
@@ -340,7 +439,7 @@ BlockItem :
     $$=ast;
   }
 ;
-//LVal          ::= IDENT;
+//LVal          ::= IDENT {"[" Exp "]"};
 LVal: 
   IDENT{
     auto ast=new LValast();
@@ -348,8 +447,33 @@ LVal:
     ast->ident=*unique_ptr<string>($1);
     $$=ast;
   }
+  | IDENT ArrayExp{
+    auto ast=new LValast();
+    ast->kind=2;
+    ast->ident=*unique_ptr<string>($1);
+    ast->arrayexp=unique_ptr<Baseast>($2);
+    $$=ast;
+  }
 ;
-//PrimaryExp    ::= "(" Exp ")" | LVal | Number;
+
+ArrayExp:
+  '[' Exp ']'
+  {
+    auto ast=new ArrayExpast();
+    ast->kind=1;
+    ast->exp=unique_ptr<Baseast>($2);
+    $$=ast;
+  }
+  | '[' Exp ']' ArrayExp
+  {
+    auto ast=new ArrayExpast();
+    ast->kind=2;
+    ast->exp=unique_ptr<Baseast>($2);
+    ast->arrayexp=unique_ptr<Baseast>($4);
+    $$=ast;
+  };
+
+//PrimaryExp    ::= "(" Exp ")" | Number | LVal;
 PrimaryExp: 
   '(' Exp ')' {
       auto ast=new PrimaryExpast();

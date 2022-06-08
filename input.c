@@ -1,21 +1,20 @@
-int add(int a, int b) {
-  return a + b;
+void f1d(int arr[]) {
+  int i = 0;
+  while (i < 10) {
+    arr[i] = i;
+    i = i + 1;
+  }
 }
 
-int sub(int a, int b) {
-  return a - b;
-}
-
-int mul(int a, int b) {
-  return a * b;
-}
-
-int div(int a, int b) {
-  return a / b;
+void f2d(int arr[][8 + 2]) {
+  arr[1][2] = 3;
+  int i = 0;
+  while (i < 10) {
+    f1d(arr[i]);
+    i = i + 1;
+  }
 }
 
 int main() {
-  int x = add(sub(1, 2), mul(3, div(4, 5)));
-  int y = add(1 || 0, 0 && sub(1, x) || mul(3, div(x || add(1, 2) > 10, 5)));
-  return x + y;
+  return 33;
 }
