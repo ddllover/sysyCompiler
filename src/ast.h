@@ -1134,14 +1134,14 @@ public:
       Break_cnt++;
       int temp_while_cnt = vec_while.back();
       fprintf(IR, "  jump %%while_end_%d\n\n", temp_while_cnt);
-      fprintf(IR, "%%while_body_%d_%d:\n", temp_while_cnt, Break_cnt);
+      fprintf(IR, "%%while_body_%d_break_%d:\n", temp_while_cnt, Break_cnt);
     }
     else if (kind == 10) // CONTINUE ';'
     {
       Continue_cnt++;
       int temp_while_cnt = vec_while.back();
       fprintf(IR, "  jump %%while_entry_%d\n\n", temp_while_cnt);
-      fprintf(IR, "%%while_body_%d_%d:\n", temp_while_cnt, Continue_cnt);
+      fprintf(IR, "%%while_body_%d_continue_%d:\n", temp_while_cnt, Continue_cnt);
     }
     return temp;
   }
