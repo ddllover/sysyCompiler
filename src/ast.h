@@ -63,8 +63,8 @@ struct Symbol
 
 struct Fun_sym //每个函数符号表
 {
-  int block_num;                             //记录当前block的序号，
   vector<map<string, Symbol>> vec_symbolmap; //函数内每个块的符号表
+  int block_num;                             //记录当前block的序号
   int block_cnt;                             // 记录所有block的块的个数，用于命名防止名称重复
   int type;                                  //函数类型1为void  2为int
   Fun_sym()

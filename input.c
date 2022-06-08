@@ -1,20 +1,35 @@
-void f1d(int arr[]) {
-  int i = 0;
-  while (i < 10) {
-    arr[i] = i;
-    i = i + 1;
-  }
+int n;
+
+int gcd(int m,int n)
+{ 
+    int a;
+    int b;
+    a=m;
+    b=n;
+
+    int t;
+    int r;
+
+    if(m<n) { t=m;m=n;n=t; }
+
+    r=m%n;
+
+    while(r!=0)
+
+    {m=n;   n=r;   r=m%n;  }
+
+   return (a*b)/n;
 }
 
-void f2d(int arr[][8 + 2]) {
-  arr[1][2] = 3;
-  int i = 0;
-  while (i < 10) {
-    f1d(arr[i]);
-    i = i + 1;
-  }
-}
-
-int main() {
-  return 33;
+int main()
+{
+    //newline=10;
+    int i;
+    int m;
+    //m = 1478;
+    //int t;
+    i=4;
+    m=20;
+    
+    return gcd(i,m);
 }

@@ -198,7 +198,7 @@ Symbol Symbol_find(string str)
     if (fun_symtab.vec_symbolmap[i].find(str) != fun_symtab.vec_symbolmap[i].end())
     {
       node = fun_symtab.vec_symbolmap[i][str];
-      break;
+      return node;
     }
   }
   if (glo_symbolmap.find(str) != glo_symbolmap.end())
