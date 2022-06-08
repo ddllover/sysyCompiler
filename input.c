@@ -1,10 +1,4 @@
-int c=1;
-int T(){
-  c=2;
-  return 1;
-}
-int main(){
-  //int c=1;
-  c=T()+c;
-  return 0;
+int main() {
+  const int x = 1 * 2 || 2 * 3 && 3 * 4,y = x * 3 > 10;
+  return y + 4 - x;
 }

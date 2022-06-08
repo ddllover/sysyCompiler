@@ -1299,8 +1299,9 @@ public:
     }
     else if (kind == 2)
     {
-      temp = unaryExp->Calc();
+      
       int temp2 = mulExp->Calc();
+      temp = unaryExp->Calc();
       if (mulop->kind == 1)
       {
         temp = temp2 * temp;
@@ -1347,8 +1348,9 @@ public:
     }
     else if (kind == 2)
     {
-      temp = mulExp->Calc();
+      
       int temp2 = addExp->Calc();
+      temp = mulExp->Calc();
       if (addOp->kind == 1)
       {
         temp = temp2 + temp;
@@ -1392,8 +1394,8 @@ public:
     }
     else if (kind == 2)
     {
-      temp = addexp->Calc();
       int temp_rel = relexp->Calc();
+      temp = addexp->Calc();
       if (relop->kind == 1)
       {
         temp = (temp_rel < temp);
