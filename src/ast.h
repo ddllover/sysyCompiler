@@ -1103,16 +1103,17 @@ public:
     {
       // lval 在stmt需要 store ,lval 在exp中需要load
       Array_init();
+      string temp_exp=exp->Dump();
       string ident = lval->Dump();
       Symbol lval_sym = Symbol_find(ident);
       if (lval_sym.type == "i32")
       {
-        DumpStore(exp->Dump(), ident, lval_sym.block_num);
+        DumpStore(temp_exp, ident, lval_sym.block_num);
       }
       else
       {
-        temp = Visit_array(ident, lval_sym.block_num, lval_sym.type);
-        fprintf(IR, "  store %s, %s\n", exp->Dump().c_str(), temp.c_str());
+        string temp_visit_aray= Visit_array(ident, lval_sym.block_num, lval_sym.type);
+        fprintf(IR, "  store %s, %s\n", temp_exp.c_str(), temp_visit_aray.c_str());
       }
     }
     else if (kind == 4) //';'
