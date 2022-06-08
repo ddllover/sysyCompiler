@@ -58,7 +58,7 @@ using namespace std;
 %type <ast_val>  ValType ArrayDef  ConstArrayVal ArrayInitVal ArrayExp
 %right ELSE
 %%
-//CompUnit:Unit| FuncDef;
+
 AST:
   CompUnit{
     auto final_ast=make_unique<AST>();
@@ -66,6 +66,7 @@ AST:
     ast=move(final_ast); 
   };
 
+//CompUnit:Unit| FuncDef;
 CompUnit: 
   Unit
    {
@@ -408,32 +409,46 @@ ArrayInitVal  :
     $$=ast;
   };
 
-//Block         ::= "{" {BlockItem} "}";
+//Block         ::="{" "}" |"{" BlockItem "}";
 Block: 
-  '{' BlockItem '}' {
+  '{' '}'{
     auto ast = new Blockast();
     ast->kind=1;
+    $$ = ast;
+  }
+  |'{' BlockItem '}' {
+    auto ast = new Blockast();
+    ast->kind=2;
     ast->blockitem=unique_ptr<Baseast>($2);
     $$ = ast;
   }
 ;
-//BlockItem     ::= |Decl BlockItem| Stmt BlockItem;
+//BlockItem     ::= Decl | Stmt |Decl BlockItem| Stmt BlockItem;
 BlockItem : 
+  Decl
   {
     auto ast=new BlockItemast();
     ast->kind=1;
+    ast->decl=unique_ptr<Baseast>($1);
+    $$=ast;
+  }
+  |Stmt
+  {
+    auto ast=new BlockItemast();
+    ast->kind=2;
+    ast->stmt=unique_ptr<Baseast>($1);
     $$=ast;
   }
   |Decl  BlockItem{
     auto ast=new BlockItemast();
-    ast->kind=2;
+    ast->kind=3;
     ast->decl=unique_ptr<Baseast>($1);
     ast->blockitem=unique_ptr<Baseast>($2);
     $$=ast;
   }
   | Stmt BlockItem{
     auto ast=new BlockItemast();
-    ast->kind=3;
+    ast->kind=4;
     ast->stmt=unique_ptr<Baseast>($1);
     ast->blockitem=unique_ptr<Baseast>($2);
     $$=ast;

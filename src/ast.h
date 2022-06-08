@@ -1,8 +1,10 @@
 #ifndef GRANDPARENT_H
 #define GRANDPARENT_H
 
-#define DEBUG
-#define MAXCHARS 10000
+//#define DEBUG
+#define MAXCHARS 100000
+
+#define YYMAXDEPTH 100000
 
 #include "koopa.h"
 
@@ -628,7 +630,7 @@ public:
   }
 };
 
-// Block         ::= "{" BlockItem "}";
+// Block         ::= "{" "}"|"{" BlockItem "}";
 class Blockast : public Baseast
 {
 public:
@@ -636,6 +638,8 @@ public:
   string Dump() override
   {
     string temp;
+    if (kind == 1)
+      return temp;
     if (ret_flag)
       return temp;
     if (blockitem->kind != 1) // blockitem 不为空 为空返回空  空{}不计入block_num
@@ -662,7 +666,7 @@ public:
     return 0;
   }
 };
-// BlockItem     ::=  |Decl BlockItem| Stmt BlockItem;
+// BlockItem     ::=Decl|Stmt  |Decl BlockItem| Stmt BlockItem;
 class BlockItemast : public Baseast
 {
 public:
@@ -674,19 +678,16 @@ public:
     string temp;
     if (ret_flag)
       return temp;
-    if (kind == 1) //为空返回值无用
+    if (kind == 1 || kind == 3) //为空返回值无用
     {
-      return "";
-    }
-    else if (kind == 2)
-    {
-
       decl->Dump();
-      blockitem->Dump();
     }
-    else if (kind == 3)
+    else
     {
       stmt->Dump();
+    }
+    if (kind == 3 || kind == 4)
+    {
       blockitem->Dump();
     }
     return temp;
@@ -822,11 +823,12 @@ public:
             else
               get_array = "@" + ident;
           }
-          if (lval_sym.type[0] == '*' && vec_array_exp_len==0)
+          if (lval_sym.type[0] == '*' && vec_array_exp_len == 0)
           {
-            temp=get_array;
-          }  
-          else {
+            temp = get_array;
+          }
+          else
+          {
             temp = "%" + to_string(++Baseast::Count_Order);
             fprintf(IR, "  %s = getelemptr %s, 0\n\n", temp.c_str(), get_array.c_str());
           }
