@@ -161,7 +161,11 @@ string Visit_array(string array_num, int block_num, string type)
   else
     array_num = "@" + array_num;
 
-  int i=0;
+  vector<string>  vec_array_exp_temp;
+  for(int i=0;i<vec_array_exp_len;i++){
+    vec_array_exp_temp.push_back( vec_array_exp.back() );
+    vec_array_exp.pop_back();
+  }
   if (type[0] == '*')
   {
     temp = "%" + to_string(++Baseast::Count_Order);
@@ -169,19 +173,17 @@ string Visit_array(string array_num, int block_num, string type)
     array_num = temp;
     if (vec_array_exp_len != 0)
     {
-      //vec_array_exp_len--;
-      i++;
       temp = "%" + to_string(++Baseast::Count_Order);
-      fprintf(IR, "  %s = getptr %s, %s\n", temp.c_str(), array_num.c_str(), vec_array_exp.back().c_str());
-      vec_array_exp.pop_back();
+      fprintf(IR, "  %s = getptr %s, %s\n", temp.c_str(), array_num.c_str(), vec_array_exp_temp.back().c_str());
+      vec_array_exp_temp.pop_back();
       array_num = temp;
     }
   }
-  for (; i < vec_array_exp_len; i++)
+  while(!vec_array_exp_temp.empty())
   {
     temp = "%" + to_string(++Baseast::Count_Order);
-    fprintf(IR, "  %s = getelemptr %s, %s\n", temp.c_str(), array_num.c_str(), vec_array_exp.back().c_str());
-    vec_array_exp.pop_back();
+    fprintf(IR, "  %s = getelemptr %s, %s\n", temp.c_str(), array_num.c_str(), vec_array_exp_temp.back().c_str());
+    vec_array_exp_temp.pop_back();
     array_num = temp;
   }
   return temp;

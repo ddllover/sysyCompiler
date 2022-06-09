@@ -743,8 +743,8 @@ public:
     }
     else if (kind == 2)
     {
-      arrayexp->Dump();
       vec_array_exp.push_back(exp->Dump());
+      arrayexp->Dump();
     }
     return temp;
   }
