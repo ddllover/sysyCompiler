@@ -2,11 +2,10 @@
 #define GRANDPARENT_H
 
 #define DEBUG
-#define MAXCHARS 1000
+#define MAXCHARS 100000
 
+//定义bsion内存 默认比较小
 #define YYMAXDEPTH 100000
-
-#include "koopa.h"
 
 #include <cassert>
 #include <iostream>
@@ -93,12 +92,7 @@ extern map<string, Symbol> symbolmap; //代表当前block符号表,便于操作
 
 Symbol Symbol_find(string str);
 
-void Visit(const koopa_raw_slice_t &slice);
-void Visit(const koopa_raw_function_t &func);
-void Visit(const koopa_raw_basic_block_t &bb);
-void Visit(const koopa_raw_value_t &value);
-void Visit(const koopa_raw_program_t &program);
-void AnalyzeIR(const char *str);
+
 
 void Decl();
 string Dumpop(string temp1, string temp2, string op);

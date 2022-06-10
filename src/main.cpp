@@ -1,5 +1,5 @@
 #include "ast.h"
-
+#include"riscv.h"
 using namespace std;
 // 声明 lexer 的输入, 以及 parser 函数
 // 为什么不引用 sysy.tab.hpp 呢? 因为首先里面没有 yyin 的定义
@@ -31,9 +31,6 @@ int main(int argc, const char *argv[])
   {
     IR=fopen(output,"w");
     assert(IR);
-    //计算const
-    //ast->Calc();
-    //生成IR
     Decl();
     ast->Dump();
     fclose(IR);
@@ -49,27 +46,34 @@ int main(int argc, const char *argv[])
 
   }
   else if(strcmp("-riscv",mode)==0){
-    //先转化成IR
-    /*freopen("IR.koopa", "w", stdout);
+    
+    IR=fopen("out.koopa", "w");
+    assert(IR);
+    Decl(); 
     ast->Dump();
-    fclose(stdout);
-    //cout<<"ok"<<endl;
+    fclose(IR);
 
-    FILE *fp = fopen("IR.koopa","r+");
-    if(!fp) {
-      perror("File opening failed");
-      return EXIT_FAILURE;
-    }
-    char  str[1000000]={0};
-    size_t len=fread(str,sizeof(char),1000000,fp);
+    IR= fopen("out.koopa","r+");
+    assert(IR);
+    char  str[MAXCHARS]={0};
+    size_t len=fread(str,sizeof(char),MAXCHARS,IR);
     str[len]='\0';
-
-    fclose(fp);
+    fclose(IR);
    
-    freopen(output,"w",stdout);
+    ASM=fopen(output,"w");
+    assert(ASM);
     AnalyzeIR(str);
-    fclose(stdout);
-    */
+    fclose(ASM);
+
+    #ifdef DEBUG
+    ASM=fopen(output,"r");
+    memset(str,0,sizeof(str));
+    len=fread(str,sizeof(char),MAXCHARS,ASM);
+    str[len]='\0';
+    cout<<str;
+    fclose(ASM);
+    #endif
+
   }
   return 0;
 }

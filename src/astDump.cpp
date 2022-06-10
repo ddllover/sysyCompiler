@@ -332,7 +332,7 @@ string DumpCall(string ident, string param)
   return temp;
 }
 
-void Decl()
+void Decl()  //一些sys自带库函数
 {
   fprintf(IR, "decl @getint(): i32\ndecl @getch(): i32\ndecl @getarray(*i32): i32\ndecl @putint(i32)\ndecl @putch(i32)\ndecl @putarray(i32, *i32)\ndecl @starttime()\ndecl @stoptime()\n\n");
   all_fun_symtab.insert({"getint", 2});
