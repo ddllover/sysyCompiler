@@ -2,7 +2,7 @@
 #define GRANDPARENT_H
 
 #define DEBUG
-#define MAXCHARS 100000
+#define MAXCHARS 1000000
 
 //定义bsion内存 默认比较小
 #define YYMAXDEPTH 100000
@@ -39,6 +39,7 @@ extern int IF_cnt;
 extern int Break_cnt;
 extern int Continue_cnt;
 extern int result_cnt;
+extern int fun_num;
 
 void Array_init();
 extern vector<int> vec_array_constexp;
@@ -864,21 +865,21 @@ public:
     funcargs->Dump();
     if (kind == 1)
     { // void 类型单独输出
-      fprintf(IR, ") {\n%%entry:\n");
+      fprintf(IR, ") {\n%%entry_%d:\n",fun_num);
       fun_symtab.type = 1;
     }
     else if (kind == 2)
     { //): %s{\n%%entry:\n
-      fprintf(IR, "):%s {\n%%entry:\n", btype->Dump().c_str());
+      fprintf(IR, "):%s {\n%%entry_%d:\n", btype->Dump().c_str(),fun_num);
       fprintf(IR, "  %%ret = alloc %s\n", btype->Dump().c_str());
       fun_symtab.type = 2;
     }
     all_fun_symtab.insert({ident, fun_symtab.type});
     funcargs->Dump();
-    fprintf(IR, "  jump %%begin\n\n%%begin:\n");
+    fprintf(IR, "  jump %%begin_%d\n\n%%begin_%d:\n",fun_num,fun_num);
     block->Dump();
-    fprintf(IR,"  jump %%end\n\n");
-    fprintf(IR, "%%end:\n");
+    fprintf(IR,"  jump %%end_%d\n\n",fun_num);
+    fprintf(IR, "%%end_%d:\n",fun_num);
     if (kind == 1)
     {
       fprintf(IR, "  ret\n");
@@ -1084,13 +1085,13 @@ public:
     if (kind == 1)
     { // return';'
 
-      fprintf(IR, "  jump %%end\n\n");
+      fprintf(IR, "  jump %%end_%d\n\n",fun_num);
       fprintf(IR, "%%ret_%d:\n", ++ret_flag);
     }
     if (kind == 2) //"return" Exp ";"
     {
       fprintf(IR, "  store %s, %%ret\n\n", exp->Dump().c_str());
-      fprintf(IR, "  jump %%end\n\n");
+      fprintf(IR, "  jump %%end_%d\n\n",fun_num);
       fprintf(IR, "%%ret_%d:\n", ++ret_flag);
     }
     else if (kind == 3) // LVal "=" Exp ";"

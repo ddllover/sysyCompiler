@@ -17,16 +17,17 @@ vector<int> vec_while;
 int Break_cnt = 0;
 int Continue_cnt = 0;
 int result_cnt=0;
-
+int fun_num=-1;
 void Fun_init()
 {
-  ret_flag = 0;
-  IF_cnt = 0;
-  While_cnt = 0;
-  vec_while.clear();
-  Break_cnt = 0;
-  Continue_cnt = 0;
-  result_cnt=0;
+  fun_num++;
+  //ret_flag = 0;
+  //IF_cnt = 0;
+  //While_cnt = 0;
+  //vec_while.clear();
+  //Break_cnt = 0;
+  //Continue_cnt = 0;
+  //result_cnt=0;
   Baseast::Count_Order = -1;
   fun_symtab.clear();
   symbolmap.clear();
