@@ -1,0 +1,2 @@
+run test in "-koopa" mode
+no test cases found in dierctory "/root/compiler/debug/compiler2021/h_functional"
