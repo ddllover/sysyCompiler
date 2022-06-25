@@ -84,7 +84,7 @@ struct Fun_sym //每个函数符号表
     vec_symbolmap.clear();
   }
 };
-extern map<string, int> all_fun_symtab;   //所有函数的符号表
+extern map<string, int> all_fun_symtab;   //所有函数的种类
 extern map<string, Symbol> glo_symbolmap; //全局变量
 extern bool global;
 
@@ -804,8 +804,9 @@ public:
           fprintf(IR, "  %s = load %s\n\n", temp.c_str(), get_array.c_str());
         }
         else
-        { //如果不等于代表此时是个指针
+        { //如果不等于代表此时应该参数数组转指针，指针转指针
           string get_array = Visit_array(ident, lval_sym.block_num, lval_sym.type);
+          //Visit_array返回的是个数组
           if (get_array.empty())
           {
             if (lval_sym.block_num != -1)
@@ -815,11 +816,11 @@ public:
             else
               get_array = "@" + ident;
           }
-          if (lval_sym.type[0] == '*' && vec_array_exp_len == 0)
+          if (lval_sym.type[0] == '*' && vec_array_exp_len == 0)//仍然是指针
           {
             temp = get_array;
-          }
-          else
+          } 
+          else //数组 转化为指向自己第一个元素的指针
           {
             temp = "%" + to_string(++Baseast::Count_Order);
             fprintf(IR, "  %s = getelemptr %s, 0\n\n", temp.c_str(), get_array.c_str());
