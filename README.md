@@ -1,7 +1,9 @@
 # 测试环境
-北大编译实践教学用编译器开发环境 (Compiler Development Environment).
+北大编译实践教学用编译器开发环境 [(Compiler Development Environment)](https://github.com/ddllover/compiler-dev).
 
 该仓库的内容将被打包为 Docker 镜像, 所以不建议直接使用该仓库, 具体使用方法见[使用方法](#使用方法)一节.
+
+
 
 ## 使用方法
 
